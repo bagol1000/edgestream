@@ -19,7 +19,11 @@ jobs:
           CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
           CIBW_SKIP: "*-musllinux* *_i686 *-win32"
           CIBW_TEST_REQUIRES: "pytest numpy"
-          CIBW_TEST_COMMAND: "pytest {project}/tests -k 'not benchmark' -q"
+          # Double quotes so the -k expression survives cmd.exe on Windows too
+          CIBW_TEST_COMMAND: 'pytest {project}/tests -k "not benchmark" -q'
+          # Apple clang needs libomp to build the OpenMP code paths
+          CIBW_BEFORE_ALL_MACOS: "brew install libomp"
+          CIBW_ENVIRONMENT_MACOS: "LIBOMP_PREFIX=$(brew --prefix libomp)"
       - uses: actions/upload-artifact@v4
         with:
           name: wheels-${{ matrix.os }}

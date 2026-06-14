@@ -3,6 +3,7 @@ streamgraph._streamgraph extension module."""
 
 import os
 import re
+import subprocess
 import sys
 
 import setuptools
@@ -47,10 +48,28 @@ class streamgraph_build_ext(build_ext):
             for e in self.extensions:
                 e.extra_compile_args += ["/O2", "/openmp", "/std:c++17"]
         elif sys.platform == "darwin":
-            #Apple-clang enables OpenMP during preprocessing; rely on libomp via CPPFLAGS/LDFLAGS
+            is_clang = "clang" in compiler and "icc" not in compiler
+            omp_prefix = None
+            if is_clang:
+                #Apple clang has no bundled omp.h; build against libomp explicitly
+                omp_prefix = os.environ.get("LIBOMP_PREFIX")
+                if not omp_prefix:
+                    try:
+                        omp_prefix = subprocess.check_output(
+                            ["brew", "--prefix", "libomp"],
+                            stderr=subprocess.DEVNULL,
+                        ).decode().strip()
+                    except Exception:
+                        omp_prefix = None
             for e in self.extensions:
                 e.extra_compile_args += ["-O3", "-std=c++17"]
-                if "icc" in compiler or "clang" not in compiler:
+                if is_clang:
+                    e.extra_compile_args += ["-Xpreprocessor", "-fopenmp"]
+                    e.extra_link_args += ["-lomp"]
+                    if omp_prefix:
+                        e.include_dirs.append(os.path.join(omp_prefix, "include"))
+                        e.library_dirs.append(os.path.join(omp_prefix, "lib"))
+                else:
                     e.extra_compile_args += ["-fopenmp"]
                     e.extra_link_args += ["-fopenmp"]
         else:
