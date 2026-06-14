@@ -38,7 +38,7 @@ jobs:
       - name: Install package
         run: R CMD INSTALL .
       - name: Run testthat suite
-        run: Rscript -e "res <- testthat::test_dir('tests/testthat'); if (any(as.data.frame(res)\$failed > 0)) quit(status = 1)"
+        run: Rscript -e "library(streamgraph); res <- testthat::test_dir('tests/testthat'); if (any(as.data.frame(res)\$failed > 0)) quit(status = 1)"
 
   check-r:
     runs-on: ubuntu-latest
