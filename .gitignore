@@ -26,3 +26,5 @@ streamgraph.Rcheck/
 *~
 Thumbs.db
 notatki.md
+
+.venv/

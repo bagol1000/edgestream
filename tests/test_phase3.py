@@ -10,7 +10,7 @@ def test_batch_dedup():
     us = np.array([0, 0, 1, 2], dtype=np.uint32)
     vs = np.array([1, 1, 2, 0], dtype=np.uint32)
     added = G.add_edges(us, vs)
-    #(0,1), (0,1)=dup, (1,2), (2,0)=(0,2)=new -> 3 distinct new edges
+    # (0,1), (0,1)=dup, (1,2), (2,0)=(0,2)=new -> 3 distinct new edges
     assert added == 3
     assert G.n_edges() == 3
 
@@ -32,6 +32,29 @@ def test_batch_result_matches_sequential():
     assert G1.n_edges() == G2.n_edges()
     assert G1.triangle_count() == G2.triangle_count()
     assert G1.n_components() == G2.n_components()
+
+
+def test_batch_accepts_non_contiguous_numpy_views():
+    G = sg.StreamGraph()
+    base = np.arange(6, dtype=np.uint32)
+    us = base[::2]
+    vs = np.array([10, 11, 12], dtype=np.uint32)
+
+    assert G.add_edges(us, vs) == 3
+    assert G.has_edge(0, 10)
+    assert G.has_edge(2, 11)
+    assert G.has_edge(4, 12)
+
+
+def test_directed_batch_keeps_reverse_edges():
+    G = sg.StreamGraph(directed=True)
+    us = np.array([0, 1], dtype=np.uint32)
+    vs = np.array([1, 0], dtype=np.uint32)
+
+    assert G.add_edges(us, vs) == 2
+    assert G.n_edges() == 2
+    assert list(G.neighbours(0)) == [1]
+    assert list(G.neighbours(1)) == [0]
 
 
 def test_stats():

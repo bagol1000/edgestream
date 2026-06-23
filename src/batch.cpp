@@ -36,7 +36,7 @@ uint64_t StreamGraph::add_edges(const uint32_t* us, const uint32_t* vs, size_t m
         uint32_t u = us[i], v = vs[i];
         if (u == v) continue;
         //directed distinguishes (u,v) from (v,u); undirected normalises
-        keys.push_back(directed ? ((static_cast<uint64_t>(u) << 32) | v) : make_key(u, v));
+        keys.push_back(directed ? make_directed_key(u, v) : make_key(u, v));
     }
 
     SG_SORT(keys.begin(), keys.end());

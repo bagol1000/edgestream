@@ -103,6 +103,7 @@ setuptools.setup(
     author_email="01199218@pw.edu.pl",
     license="MIT",
     install_requires=["numpy>=1.21"],
+    extras_require={"dev": ["pytest>=7"]},
     python_requires=">=3.9",
     packages=setuptools.find_packages(),
     include_package_data=True,

@@ -1,5 +1,7 @@
 #include "streamgraph.h"
 
+#include <stdexcept>
+
 namespace streamgraph {
 
 StreamGraph::StreamGraph(uint32_t n_nodes_initial_, bool directed_)
@@ -9,17 +11,28 @@ StreamGraph::StreamGraph(uint32_t n_nodes_initial_, bool directed_)
     dsu.init(cap);
     touched.assign(cap, false);
 
-    //auto mode starts with no referenced node; pre-allocated mode promises ids up to n_nodes_initial-1
+    // Auto mode starts with no referenced node; pre-allocated mode promises ids up to n_nodes_initial-1
     n_nodes_actual = n_nodes_initial_;
 
-    //touched nodes always have degree >= 1, so degree_histogram[0] stays 0
+    // Touched nodes always have degree >= 1, so degree_histogram[0] stays 0
     degree_histogram.assign(1, 0);
+}
+
+EdgeKey StreamGraph::edge_key(uint32_t u, uint32_t v) const {
+    return directed ? make_directed_key(u, v) : make_key(u, v);
+}
+
+bool StreamGraph::valid_touched_node(uint32_t u) const {
+    return u < adj.size() && touched[u];
 }
 
 void StreamGraph::expand_to(uint32_t new_max) {
     if (new_max < adj.size()) return;
     size_t old_size = adj.size();
-    size_t new_size = std::max(static_cast<size_t>(new_max) + 1, old_size + old_size / 2);   //1.5x growth
+    size_t new_size = std::max(
+        static_cast<size_t>(new_max) + 1,
+        old_size + old_size / 2
+    );
     adj.resize(new_size);
     dsu.grow(static_cast<uint32_t>(new_size));
     touched.resize(new_size, false);
@@ -29,13 +42,13 @@ void StreamGraph::touch(uint32_t u) {
     if (!touched[u]) {
         touched[u] = true;
         ++n_touched;
-        ++n_components_touched;   //a freshly touched node is its own component
+        ++n_components_touched;
     }
 }
 
 void StreamGraph::histogram_move(uint32_t old_deg, uint32_t new_deg) {
     if (new_deg >= degree_histogram.size()) degree_histogram.resize(new_deg + 1, 0);
-    //old_deg == 0 means the node was isolated and not yet in the histogram
+    // old_deg == 0 means the node was isolated and not yet in the histogram
     if (old_deg > 0) --degree_histogram[old_deg];
     ++degree_histogram[new_deg];
 }
@@ -49,14 +62,14 @@ void StreamGraph::insert_neighbour(uint32_t u, uint32_t v) {
 }
 
 bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
-    if (u == v) return false;   //no self-loops
+    if (u == v) return false;
 
     uint32_t hi = std::max(u, v);
     if (hi >= adj.size()) expand_to(hi);
     if (hi + 1 > n_nodes_actual) n_nodes_actual = hi + 1;
 
-    EdgeKey key = make_key(u, v);
-    if (!edge_set.insert(key)) return false;   //already present
+    EdgeKey key = edge_key(u, v);
+    if (!edge_set.insert(key)) return false;
 
     touch(u);
     touch(v);
@@ -66,8 +79,6 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
 
     if (dsu.unite(u, v)) --n_components_touched;
 
-    //every common neighbour w of u and v closes a new triangle {u,v,w}; runs after the
-    //adjacency insert, and neither u nor v can be a common neighbour, so no false positives
     common_buf.clear();
     uint32_t cnt = count_common_neighbours(adj[u], adj[v], common_buf);
     n_triangles += cnt;
@@ -79,9 +90,17 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
     return true;
 }
 
-uint32_t StreamGraph::find_component(uint32_t u) { return dsu.find(u); }
+uint32_t StreamGraph::find_component(uint32_t u) {
+    if (!valid_touched_node(u)) {
+        throw std::out_of_range("streamgraph: node has not been touched");
+    }
+    return dsu.find(u);
+}
 
-bool StreamGraph::same_component(uint32_t u, uint32_t v) { return dsu.find(u) == dsu.find(v); }
+bool StreamGraph::same_component(uint32_t u, uint32_t v) {
+    if (!valid_touched_node(u) || !valid_touched_node(v)) return false;
+    return dsu.find(u) == dsu.find(v);
+}
 
 uint32_t StreamGraph::n_components() const { return n_components_touched; }
 
@@ -97,10 +116,13 @@ std::vector<uint32_t> StreamGraph::neighbours(uint32_t u) const {
 
 bool StreamGraph::has_edge(uint32_t u, uint32_t v) const {
     if (u == v) return false;
-    return edge_set.contains(make_key(u, v));
+    return edge_set.contains(edge_key(u, v));
 }
 
-uint32_t StreamGraph::component_size(uint32_t u) { return dsu.comp_size(u); }
+uint32_t StreamGraph::component_size(uint32_t u) {
+    if (!valid_touched_node(u)) return 0;
+    return dsu.comp_size(u);
+}
 
 uint32_t StreamGraph::n_nodes() const { return n_touched; }
 
@@ -108,7 +130,7 @@ double StreamGraph::density() const {
     double n = static_cast<double>(n_touched);
     if (n < 2.0) return 0.0;
     double m = static_cast<double>(n_edges);
-    double possible = n * (n - 1.0);   //ordered pairs
+    double possible = n * (n - 1.0);
     return directed ? (m / possible) : (2.0 * m / possible);
 }
 

@@ -1,7 +1,7 @@
 test_that("add_edges deduplicates within the batch", {
   G <- stream_graph()
   added <- add_edges(G, c(0L, 0L, 1L, 2L), c(1L, 1L, 2L, 0L))
-  #(0,1),(0,1)=dup,(1,2),(2,0)=(0,2) -> 3 distinct new edges
+  # (0,1),(0,1)=dup,(1,2),(2,0)=(0,2) -> 3 distinct new edges
   expect_equal(added, 3)
   expect_equal(n_edges(G), 3)
 })
@@ -20,4 +20,14 @@ test_that("batch result matches sequential", {
   expect_equal(n_edges(G1), n_edges(G2))
   expect_equal(triangle_count(G1), triangle_count(G2))
   expect_equal(n_components(G1), n_components(G2))
+})
+
+
+test_that("directed batch keeps reverse edges distinct", {
+  G <- stream_graph(directed = TRUE)
+  added <- add_edges(G, c(0L, 1L), c(1L, 0L))
+  expect_equal(added, 2)
+  expect_equal(n_edges(G), 2)
+  expect_equal(neighbours(G, 0L), 1L)
+  expect_equal(neighbours(G, 1L), 0L)
 })

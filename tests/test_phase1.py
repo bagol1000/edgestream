@@ -15,7 +15,7 @@ def test_union_find_basic():
     G = sg.StreamGraph()
     G.add_edge(0, 1)
     G.add_edge(2, 3)
-    #Model A: only touched nodes count, {0,1} and {2,3} -> 2 components
+    # Model A: only touched nodes count, {0,1} and {2,3} -> 2 components
     assert G.n_components() == 2
     assert G.same_component(0, 1)
     assert not G.same_component(0, 2)
@@ -28,7 +28,7 @@ def test_no_duplicates():
     G = sg.StreamGraph()
     assert G.add_edge(0, 1) is True
     assert G.add_edge(0, 1) is False
-    assert G.add_edge(1, 0) is False  #undirected
+    assert G.add_edge(1, 0) is False  # undirected
     assert G.n_edges() == 1
 
 
@@ -67,17 +67,37 @@ def test_auto_expansion():
     G = sg.StreamGraph(n_nodes=0)
     G.add_edge(0, 999999)
     assert G.same_component(0, 999999)
-    assert G.n_components() == 1  #Model A: 2 touched nodes, connected
+    assert G.n_components() == 1  # Model A: 2 touched nodes, connected
 
 
 def test_preallocated():
     G = sg.StreamGraph(n_nodes=1000)
     G.add_edge(0, 999)
-    #Model A: only the 2 touched nodes count, and they are connected
+    # Model A: only the 2 touched nodes count, and they are connected
     assert G.n_components() == 1
     assert G.n_nodes() == 2
 
 
+def test_component_queries_for_unknown_nodes_are_safe():
+    G = sg.StreamGraph()
+    assert G.same_component(0, 9999999) is False
+    assert G.component_size(9999999) == 0
+    with pytest.raises(IndexError):
+        G.component_id(999)
+
+
+def test_directed_edges_distinguish_reverse_direction():
+    G = sg.StreamGraph(directed=True)
+    assert G.add_edge(0, 1) is True
+    assert G.add_edge(1, 0) is True
+    assert G.n_edges() == 2
+    assert G.has_edge(0, 1) is True
+    assert G.has_edge(1, 0) is True
+    assert list(G.neighbours(0)) == [1]
+    assert list(G.neighbours(1)) == [0]
+
+
+@pytest.mark.slow
 def test_benchmark_add_edge():
     """Report-only benchmark: amortised time per add_edge. Target < 500 ns."""
     n = 1_000_000
@@ -93,6 +113,8 @@ def test_benchmark_add_edge():
     elapsed = time.perf_counter() - t0
 
     ns_per_edge = elapsed * 1e9 / m
-    print(f"\n[benchmark] {m} add_edge calls in {elapsed:.2f}s "
-          f"-> {ns_per_edge:.1f} ns/edge ({elapsed * 1e3 / m:.6f} ms/edge), "
-          f"target < 500 ns/edge")
+    print(
+        f"\n[benchmark] {m} add_edge calls in {elapsed:.2f}s "
+        f"-> {ns_per_edge:.1f} ns/edge ({elapsed * 1e3 / m:.6f} ms/edge), "
+        f"target < 500 ns/edge"
+    )
