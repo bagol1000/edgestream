@@ -83,7 +83,9 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
         order.reserve(N);
 
 #ifdef _OPENMP
-#pragma omp for schedule(static)
+//round-robin keeps threads balanced when the undirected exact path skips the
+//i > j half of the index space, and stays deterministic (fixed pair->thread map)
+#pragma omp for schedule(static, 1)
 #endif
         for (long long p = 0; p < static_cast<long long>(n_iter); ++p) {
             uint32_t s, t;
@@ -130,7 +132,7 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
                     int32_t dw = dist[w];
                     //predecessors of w reach it via an edge v->w: in-edges when directed
                     const std::vector<uint32_t>& preds =
-                        G.directed ? G.adj[w].in_neighbours : G.adj[w].neighbours;
+                        G.directed ? G.in_adj[w] : G.adj[w].neighbours;
                     for (uint32_t v : preds)
                         if (dist[v] == dw - 1) g[v] += gw;   //v is closer to s
                 }

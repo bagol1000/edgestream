@@ -8,6 +8,7 @@ StreamGraph::StreamGraph(uint32_t n_nodes_initial_, bool directed_)
     : directed(directed_), n_nodes_initial(n_nodes_initial_) {
     uint32_t cap = (n_nodes_initial_ == 0) ? STREAMGRAPH_AUTO_INITIAL_CAPACITY : n_nodes_initial_;
     adj.resize(cap);
+    if (directed_) in_adj.resize(cap);
     dsu.init(cap);
     touched.assign(cap, false);
 
@@ -34,6 +35,7 @@ void StreamGraph::expand_to(uint32_t new_max) {
         old_size + old_size / 2
     );
     adj.resize(new_size);
+    if (directed) in_adj.resize(new_size);
     dsu.grow(static_cast<uint32_t>(new_size));
     touched.resize(new_size, false);
 }
@@ -63,7 +65,7 @@ void StreamGraph::insert_neighbour(uint32_t u, uint32_t v) {
 }
 
 void StreamGraph::insert_in_neighbour(uint32_t u, uint32_t v) {
-    auto& in = adj[u].in_neighbours;
+    auto& in = in_adj[u];
     in.insert(std::lower_bound(in.begin(), in.end(), v), v);
 }
 
@@ -95,8 +97,8 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
         uint32_t cnt;
         if (directed) {
             // undirected neighbourhood = out ∪ in; makes the count order-independent
-            sorted_union(adj[u].neighbours, adj[u].in_neighbours, union_u_buf);
-            sorted_union(adj[v].neighbours, adj[v].in_neighbours, union_v_buf);
+            sorted_union(adj[u].neighbours, in_adj[u], union_u_buf);
+            sorted_union(adj[v].neighbours, in_adj[v], union_v_buf);
             cnt = count_common_neighbours(union_u_buf, union_v_buf, common_buf);
         } else {
             cnt = count_common_neighbours(adj[u].neighbours, adj[v].neighbours, common_buf);
@@ -132,7 +134,7 @@ uint32_t StreamGraph::degree(uint32_t u) const {
 
 uint32_t StreamGraph::in_degree(uint32_t u) const {
     if (u >= adj.size()) return 0;
-    return directed ? static_cast<uint32_t>(adj[u].in_neighbours.size()) : adj[u].degree;
+    return directed ? static_cast<uint32_t>(in_adj[u].size()) : adj[u].degree;
 }
 
 std::vector<uint32_t> StreamGraph::neighbours(uint32_t u) const {
@@ -142,7 +144,7 @@ std::vector<uint32_t> StreamGraph::neighbours(uint32_t u) const {
 
 std::vector<uint32_t> StreamGraph::in_neighbours(uint32_t u) const {
     if (u >= adj.size()) return {};
-    return directed ? adj[u].in_neighbours : adj[u].neighbours;
+    return directed ? in_adj[u] : adj[u].neighbours;
 }
 
 bool StreamGraph::has_edge(uint32_t u, uint32_t v) const {

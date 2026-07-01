@@ -12,10 +12,11 @@
 
 namespace streamgraph {
 
+// In-neighbour lists for directed graphs live in StreamGraph::in_adj, not here:
+// keeping AdjList small preserves cache locality for the undirected hot path.
 struct AdjList {
-    std::vector<uint32_t> neighbours;     // out-neighbours when directed; kept sorted
-    std::vector<uint32_t> in_neighbours;  // directed mode only; kept sorted, empty when undirected
-    uint32_t degree = 0;                  // out-degree when directed
+    std::vector<uint32_t> neighbours;  // out-neighbours when directed; kept sorted
+    uint32_t degree = 0;               // out-degree when directed
     uint32_t triangle_count = 0;
 };
 
@@ -53,6 +54,7 @@ struct StreamGraph {
     uint32_t n_nodes_actual;   // current maximum node id + 1
 
     std::vector<AdjList> adj;  // indexed by node id
+    std::vector<std::vector<uint32_t>> in_adj;  // sorted in-neighbours per node; directed mode only (else empty)
     DSU dsu;
     EdgeSet edge_set;
 
