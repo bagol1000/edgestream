@@ -29,12 +29,20 @@
     .Call(`_streamgraph_sg_degree`, ptr, u)
 }
 
+.sg_in_degree <- function(ptr, u) {
+    .Call(`_streamgraph_sg_in_degree`, ptr, u)
+}
+
 .sg_has_edge <- function(ptr, u, v) {
     .Call(`_streamgraph_sg_has_edge`, ptr, u, v)
 }
 
 .sg_neighbours <- function(ptr, u) {
     .Call(`_streamgraph_sg_neighbours`, ptr, u)
+}
+
+.sg_in_neighbours <- function(ptr, u) {
+    .Call(`_streamgraph_sg_in_neighbours`, ptr, u)
 }
 
 .sg_n_nodes <- function(ptr) {
@@ -85,8 +93,8 @@
     .Call(`_streamgraph_sg_component_ids`, ptr)
 }
 
-.sg_betweenness_approx <- function(ptr, k, n_threads, seed) {
-    .Call(`_streamgraph_sg_betweenness_approx`, ptr, k, n_threads, seed)
+.sg_betweenness_approx <- function(ptr, k, n_threads, seed, normalise) {
+    .Call(`_streamgraph_sg_betweenness_approx`, ptr, k, n_threads, seed, normalise)
 }
 
 .sg_save <- function(ptr, path) {

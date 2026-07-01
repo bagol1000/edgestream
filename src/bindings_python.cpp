@@ -22,6 +22,10 @@ static py::array_t<uint32_t> neighbours_np(const StreamGraph& G, uint32_t u) {
     return to_uint32_array(G.neighbours(u));
 }
 
+static py::array_t<uint32_t> in_neighbours_np(const StreamGraph& G, uint32_t u) {
+    return to_uint32_array(G.in_neighbours(u));
+}
+
 static py::array_t<uint32_t> all_local_triangles_np(const StreamGraph& G) {
     return to_uint32_array(G.all_local_triangles());
 }
@@ -40,21 +44,26 @@ static uint64_t add_edges_np(
     }
     auto bu = us.request();
     auto bv = vs.request();
-    return G.add_edges(
-        static_cast<const uint32_t*>(bu.ptr),
-        static_cast<const uint32_t*>(bv.ptr),
-        static_cast<size_t>(us.shape(0)),
-        n_threads
-    );
+    const uint32_t* pu = static_cast<const uint32_t*>(bu.ptr);
+    const uint32_t* pv = static_cast<const uint32_t*>(bv.ptr);
+    size_t m = static_cast<size_t>(us.shape(0));
+    //long-running pure C++ section: let other Python threads run
+    py::gil_scoped_release release;
+    return G.add_edges(pu, pv, m, n_threads);
 }
 
 static py::array_t<double> betweenness_approx_np(
     const StreamGraph& G,
     int k,
     int n_threads,
-    uint64_t seed
+    uint64_t seed,
+    bool normalise
 ) {
-    std::vector<double> bc = streamgraph::BetweennessApprox::compute(G, k, n_threads, seed);
+    std::vector<double> bc;
+    {
+        py::gil_scoped_release release;
+        bc = streamgraph::BetweennessApprox::compute(G, k, n_threads, seed, normalise);
+    }
     py::array_t<double> out(static_cast<py::ssize_t>(bc.size()));
     if (!bc.empty()) std::copy(bc.begin(), bc.end(), out.mutable_data());
     return out;
@@ -110,10 +119,21 @@ PYBIND11_MODULE(_streamgraph, m) {
             [](StreamGraph& G) { return to_uint32_array(G.component_ids()); },
             "uint32 array of the component root id per touched node."
         )
-        .def("degree", &StreamGraph::degree, py::arg("u"))
-        .def("degree_histogram", &degree_histogram_np, "uint64 array: histogram[d] = number of nodes with degree d.")
+        .def("degree", &StreamGraph::degree, py::arg("u"), "Degree of u (out-degree in directed graphs).")
+        .def("in_degree", &StreamGraph::in_degree, py::arg("u"), "In-degree of u; equals degree(u) in undirected graphs.")
+        .def(
+            "degree_histogram",
+            &degree_histogram_np,
+            "uint64 array: histogram[d] = number of nodes with degree d (out-degree in directed graphs)."
+        )
         .def("has_edge", &StreamGraph::has_edge, py::arg("u"), py::arg("v"))
-        .def("neighbours", &neighbours_np, py::arg("u"), "Sorted uint32 array of u's neighbours.")
+        .def("neighbours", &neighbours_np, py::arg("u"), "Sorted uint32 array of u's (out-)neighbours.")
+        .def(
+            "in_neighbours",
+            &in_neighbours_np,
+            py::arg("u"),
+            "Sorted uint32 array of u's in-neighbours; equals neighbours(u) in undirected graphs."
+        )
         .def("n_nodes", &StreamGraph::n_nodes)
         .def("n_edges", [](const StreamGraph& G) { return G.n_edges; })
         .def("triangle_count", &StreamGraph::total_triangles, "Global triangle count, O(1).")
@@ -121,26 +141,31 @@ PYBIND11_MODULE(_streamgraph, m) {
         .def("all_local_triangles", &all_local_triangles_np, "uint32 array of per-node-id local triangle counts.")
         .def("density", &StreamGraph::density)
         .def("avg_degree", &StreamGraph::avg_degree)
-        .def("max_degree", &StreamGraph::max_degree)
+        .def("max_degree", &StreamGraph::max_degree, "Maximum (out-)degree, O(1).")
         .def(
             "betweenness_approx",
             &betweenness_approx_np,
             py::arg("k") = 200,
             py::arg("n_threads") = 0,
             py::arg("seed") = 42,
-            "Approximate betweenness via random (s,t) pair sampling; "
-            "float64 per node id, normalised to [0, 1]."
+            py::arg("normalise") = true,
+            "Approximate betweenness via random (s,t) pair sampling; float64 per node id. "
+            "normalise=True divides by the maximum (scores in [0, 1]); normalise=False "
+            "returns the raw betweenness estimate. Directed graphs respect edge direction "
+            "and sum over ordered pairs."
         )
         .def(
             "save",
             [](const StreamGraph& G, const std::string& path) { G.save(path.c_str()); },
             py::arg("path"),
+            py::call_guard<py::gil_scoped_release>(),
             "Save the graph to a binary .sgph file."
         )
         .def_static(
             "load",
             [](const std::string& path) { return StreamGraph::load(path.c_str()); },
             py::arg("path"),
+            py::call_guard<py::gil_scoped_release>(),
             "Load a graph from a binary .sgph file."
         );
 }

@@ -13,7 +13,8 @@ n_components(G)
 Integer.
 }
 \description{
-Number of connected components (touched nodes only)
+Edge direction is ignored: for directed graphs this counts weakly
+connected components.
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L); add_edge(G, 2L, 3L)

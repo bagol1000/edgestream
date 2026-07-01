@@ -51,6 +51,7 @@ void StreamGraph::histogram_move(uint32_t old_deg, uint32_t new_deg) {
     // old_deg == 0 means the node was isolated and not yet in the histogram
     if (old_deg > 0) --degree_histogram[old_deg];
     ++degree_histogram[new_deg];
+    if (new_deg > max_deg_) max_deg_ = new_deg;
 }
 
 void StreamGraph::insert_neighbour(uint32_t u, uint32_t v) {
@@ -59,6 +60,11 @@ void StreamGraph::insert_neighbour(uint32_t u, uint32_t v) {
     a.neighbours.insert(pos, v);
     histogram_move(a.degree, a.degree + 1);
     ++a.degree;
+}
+
+void StreamGraph::insert_in_neighbour(uint32_t u, uint32_t v) {
+    auto& in = adj[u].in_neighbours;
+    in.insert(std::lower_bound(in.begin(), in.end(), v), v);
 }
 
 bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
@@ -74,17 +80,32 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v) {
     touch(u);
     touch(v);
 
+    // A directed edge whose reverse is already present adds no undirected
+    // structure, so triangles must not be recounted for it.
+    bool new_undirected_edge = !directed || !edge_set.contains(make_directed_key(v, u));
+
     insert_neighbour(u, v);
-    if (!directed) insert_neighbour(v, u);
+    if (directed) insert_in_neighbour(v, u);
+    else insert_neighbour(v, u);
 
     if (dsu.unite(u, v)) --n_components_touched;
 
-    common_buf.clear();
-    uint32_t cnt = count_common_neighbours(adj[u], adj[v], common_buf);
-    n_triangles += cnt;
-    adj[u].triangle_count += cnt;
-    adj[v].triangle_count += cnt;
-    for (uint32_t w : common_buf) adj[w].triangle_count += 1;
+    if (new_undirected_edge) {
+        common_buf.clear();
+        uint32_t cnt;
+        if (directed) {
+            // undirected neighbourhood = out ∪ in; makes the count order-independent
+            sorted_union(adj[u].neighbours, adj[u].in_neighbours, union_u_buf);
+            sorted_union(adj[v].neighbours, adj[v].in_neighbours, union_v_buf);
+            cnt = count_common_neighbours(union_u_buf, union_v_buf, common_buf);
+        } else {
+            cnt = count_common_neighbours(adj[u].neighbours, adj[v].neighbours, common_buf);
+        }
+        n_triangles += cnt;
+        adj[u].triangle_count += cnt;
+        adj[v].triangle_count += cnt;
+        for (uint32_t w : common_buf) adj[w].triangle_count += 1;
+    }
 
     ++n_edges;
     return true;
@@ -109,9 +130,19 @@ uint32_t StreamGraph::degree(uint32_t u) const {
     return adj[u].degree;
 }
 
+uint32_t StreamGraph::in_degree(uint32_t u) const {
+    if (u >= adj.size()) return 0;
+    return directed ? static_cast<uint32_t>(adj[u].in_neighbours.size()) : adj[u].degree;
+}
+
 std::vector<uint32_t> StreamGraph::neighbours(uint32_t u) const {
     if (u >= adj.size()) return {};
     return adj[u].neighbours;
+}
+
+std::vector<uint32_t> StreamGraph::in_neighbours(uint32_t u) const {
+    if (u >= adj.size()) return {};
+    return directed ? adj[u].in_neighbours : adj[u].neighbours;
 }
 
 bool StreamGraph::has_edge(uint32_t u, uint32_t v) const {
@@ -141,12 +172,7 @@ double StreamGraph::avg_degree() const {
     return directed ? (m / n) : (2.0 * m / n);
 }
 
-uint32_t StreamGraph::max_degree() const {
-    uint32_t best = 0;
-    for (uint32_t i = 0; i < n_nodes_actual; ++i)
-        if (adj[i].degree > best) best = adj[i].degree;
-    return best;
-}
+uint32_t StreamGraph::max_degree() const { return max_deg_; }
 
 std::vector<uint32_t> StreamGraph::component_nodes(uint32_t u) {
     std::vector<uint32_t> out;

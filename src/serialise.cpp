@@ -75,6 +75,8 @@ std::unique_ptr<StreamGraph> StreamGraph::load(const char* path) {
         uint32_t v = read_pod<uint32_t>(is, path);
         g->add_edge(u, v);
     }
+    if (is.peek() != std::char_traits<char>::eof())
+        throw std::runtime_error(std::string("streamgraph: trailing data after edge list in: ") + path);
     return g;
 }
 

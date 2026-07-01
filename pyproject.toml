@@ -6,3 +6,45 @@ requires = [
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
+
+[project]
+name = "streamgraph"
+description = "streamgraph: streaming (dynamic) graph analytics"
+readme = "README.md"
+license = {text = "MIT"}
+authors = [{name = "bagol1000", email = "01199218@pw.edu.pl"}]
+requires-python = ">=3.9"
+dependencies = ["numpy>=1.21"]
+dynamic = ["version"]
+classifiers = [
+    "Programming Language :: Python",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3 :: Only",
+    "Intended Audience :: Science/Research",
+    "Development Status :: 3 - Alpha",
+    "Topic :: Scientific/Engineering",
+]
+
+[project.urls]
+Homepage = "https://github.com/bagol1000/streamgraph"
+Issues = "https://github.com/bagol1000/streamgraph/issues"
+
+[project.optional-dependencies]
+dev = ["pytest>=7"]
+
+[tool.setuptools]
+packages = ["streamgraph"]
+
+[tool.setuptools.package-data]
+streamgraph = ["py.typed", "*.pyi"]
+
+[tool.setuptools.dynamic]
+# read statically from streamgraph/__init__.py (no import of the C extension)
+version = {attr = "streamgraph.__version__"}
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = '-m "not slow"'
+markers = [
+    "slow: long-running benchmarks excluded from the default test run",
+]

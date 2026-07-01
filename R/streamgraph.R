@@ -60,6 +60,9 @@ add_edges <- function(G, us, vs, n_threads = 0L) {
 
 #' Whether two nodes are in the same component
 #'
+#' Components ignore edge direction: for directed graphs these are the
+#' weakly connected components.
+#'
 #' @param G A StreamGraph.
 #' @param u,v Node IDs (0-indexed).
 #' @return Logical.
@@ -85,6 +88,9 @@ component_id <- function(G, u) {
 }
 
 #' Number of connected components (touched nodes only)
+#'
+#' Edge direction is ignored: for directed graphs this counts weakly
+#' connected components.
 #'
 #' @param G A StreamGraph.
 #' @return Integer.
@@ -136,6 +142,8 @@ component_ids <- function(G) {
 
 #' Degree of a node
 #'
+#' In directed graphs this is the out-degree; see [in_degree()].
+#'
 #' @param G A StreamGraph.
 #' @param u Node ID (0-indexed).
 #' @return Integer.
@@ -147,7 +155,25 @@ degree <- function(G, u) {
     .sg_degree(G, as.integer(u))
 }
 
+#' In-degree of a node
+#'
+#' Equals [degree()] in undirected graphs.
+#'
+#' @param G A StreamGraph.
+#' @param u Node ID (0-indexed).
+#' @return Integer.
+#' @examples
+#' G <- stream_graph(directed = TRUE); add_edge(G, 0L, 2L); add_edge(G, 1L, 2L)
+#' in_degree(G, 2L)  # 2
+#' degree(G, 2L)     # 0 (out-degree)
+#' @export
+in_degree <- function(G, u) {
+    .sg_in_degree(G, as.integer(u))
+}
+
 #' Degree histogram
+#'
+#' In directed graphs the histogram is over out-degrees.
 #'
 #' @param G A StreamGraph.
 #' @return Named numeric vector; entry "d" is the number of nodes of degree d.
@@ -161,6 +187,8 @@ degree_histogram <- function(G) {
 
 #' Sorted neighbours of a node
 #'
+#' In directed graphs these are the out-neighbours; see [in_neighbours()].
+#'
 #' @param G A StreamGraph.
 #' @param u Node ID (0-indexed).
 #' @return Sorted integer vector of neighbour IDs (0-indexed).
@@ -170,6 +198,21 @@ degree_histogram <- function(G) {
 #' @export
 neighbours <- function(G, u) {
     .sg_neighbours(G, as.integer(u))
+}
+
+#' Sorted in-neighbours of a node
+#'
+#' Equals [neighbours()] in undirected graphs.
+#'
+#' @param G A StreamGraph.
+#' @param u Node ID (0-indexed).
+#' @return Sorted integer vector of in-neighbour IDs (0-indexed).
+#' @examples
+#' G <- stream_graph(directed = TRUE); add_edge(G, 0L, 2L); add_edge(G, 1L, 2L)
+#' in_neighbours(G, 2L)  # c(0L, 1L)
+#' @export
+in_neighbours <- function(G, u) {
+    .sg_in_neighbours(G, as.integer(u))
 }
 
 #' Whether an edge exists
@@ -210,6 +253,10 @@ n_edges <- function(G) {
 }
 
 #' Global triangle count
+#'
+#' Triangles are counted on the underlying undirected graph: edge direction
+#' and reciprocal edges are ignored, so the count does not depend on the
+#' order in which edges were added.
 #'
 #' @param G A StreamGraph.
 #' @return Numeric; each triangle counted once.
@@ -275,6 +322,9 @@ avg_degree <- function(G) {
 
 #' Maximum degree
 #'
+#' Maintained incrementally, O(1) to query. In directed graphs this is the
+#' maximum out-degree.
+#'
 #' @param G A StreamGraph.
 #' @return Integer.
 #' @examples
@@ -287,20 +337,27 @@ max_degree <- function(G) {
 
 #' Approximate betweenness centrality
 #'
-#' Random (s, t) pair sampling with per-pair BFS; normalised to [0, 1].
+#' Random (s, t) pair sampling with per-pair BFS. Directed graphs respect
+#' edge direction and sum dependencies over ordered pairs; undirected graphs
+#' use unordered pairs.
 #'
 #' @param G A StreamGraph.
 #' @param k Integer; number of sampled pairs (clamped to all pairs => exact).
 #' @param n_threads Integer; OpenMP threads (0 = default).
 #' @param seed Integer; RNG seed for reproducibility.
-#' @return Numeric vector of per-node scores in [0, 1].
+#' @param normalise Logical; TRUE (default) divides by the maximum so scores
+#'   lie in [0, 1], FALSE returns the raw betweenness estimate (sampled sums
+#'   scaled by total_pairs / k).
+#' @return Numeric vector of per-node scores.
 #' @examples
 #' G <- stream_graph(); for (i in 0:4) add_edge(G, i, i + 1L)
 #' betweenness_approx(G, k = 100L, seed = 42L)
+#' betweenness_approx(G, k = 100L, seed = 42L, normalise = FALSE)
 #' @export
-betweenness_approx <- function(G, k = 200L, n_threads = 0L, seed = 42L) {
+betweenness_approx <- function(G, k = 200L, n_threads = 0L, seed = 42L,
+                               normalise = TRUE) {
     .sg_betweenness_approx(G, as.integer(k), as.integer(n_threads),
-                           as.double(seed))
+                           as.double(seed), as.logical(normalise))
 }
 
 #' Save a graph to a binary file
@@ -331,11 +388,13 @@ load_graph <- function(path) {
     .sg_load(path)
 }
 
-#NodeIndex: pure R, an environment with two maps
+#NodeIndex: pure R, an environment with two hash maps (key -> id, id -> key)
 
 #' Create a node index
 #'
 #' Maps arbitrary keys to contiguous 0-indexed node IDs (insertion order).
+#' Both directions are environment-backed hash maps, so lookups and inserts
+#' are O(1).
 #'
 #' @return An environment of class "streamgraph_node_index".
 #' @examples
@@ -345,7 +404,8 @@ load_graph <- function(path) {
 node_index <- function() {
     idx <- new.env(parent = emptyenv())
     idx$key_to_id <- new.env(parent = emptyenv())
-    idx$keys <- character(0)
+    idx$id_to_key <- new.env(parent = emptyenv())
+    idx$n <- 0L
     class(idx) <- "streamgraph_node_index"
     idx
 }
@@ -364,9 +424,10 @@ node_id <- function(idx, key) {
     key <- as.character(key)
     existing <- idx$key_to_id[[key]]
     if (!is.null(existing)) return(existing)
-    new_id <- length(idx$keys)
+    new_id <- idx$n
     idx$key_to_id[[key]] <- new_id
-    idx$keys <- c(idx$keys, key)
+    idx$id_to_key[[as.character(new_id)]] <- key
+    idx$n <- new_id + 1L
     new_id
 }
 
@@ -397,8 +458,9 @@ get_id <- function(idx, key) {
 #' @export
 get_key <- function(idx, id) {
     id <- as.integer(id)
-    if (id < 0 || id >= length(idx$keys)) stop("id out of range")
-    idx$keys[[id + 1L]]
+    key <- idx$id_to_key[[as.character(id)]]
+    if (is.null(key)) stop("id out of range")
+    key
 }
 
 #' Number of indexed keys
@@ -410,7 +472,7 @@ get_key <- function(idx, id) {
 #' n_indexed(idx)
 #' @export
 n_indexed <- function(idx) {
-    length(idx$keys)
+    idx$n
 }
 
 #' Whether a key is present in the index

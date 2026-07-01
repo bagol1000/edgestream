@@ -13,7 +13,7 @@ degree_histogram(G)
 Named numeric vector; entry "d" is the number of nodes of degree d.
 }
 \description{
-Degree histogram
+In directed graphs the histogram is over out-degrees.
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L); add_edge(G, 0L, 2L)

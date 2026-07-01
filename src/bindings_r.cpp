@@ -49,12 +49,23 @@ int sg_component_size(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->com
 // [[Rcpp::export(name = ".sg_degree")]]
 int sg_degree(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->degree(as_node(u))); }
 
+// [[Rcpp::export(name = ".sg_in_degree")]]
+int sg_in_degree(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->in_degree(as_node(u))); }
+
 // [[Rcpp::export(name = ".sg_has_edge")]]
 bool sg_has_edge(SEXP ptr, int u, int v) { return deref(ptr)->has_edge(as_node(u), as_node(v)); }
 
 // [[Rcpp::export(name = ".sg_neighbours")]]
 Rcpp::IntegerVector sg_neighbours(SEXP ptr, int u) {
     std::vector<uint32_t> nb = deref(ptr)->neighbours(as_node(u));
+    Rcpp::IntegerVector out(nb.size());
+    for (size_t i = 0; i < nb.size(); ++i) out[i] = static_cast<int>(nb[i]);
+    return out;
+}
+
+// [[Rcpp::export(name = ".sg_in_neighbours")]]
+Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u) {
+    std::vector<uint32_t> nb = deref(ptr)->in_neighbours(as_node(u));
     Rcpp::IntegerVector out(nb.size());
     for (size_t i = 0; i < nb.size(); ++i) out[i] = static_cast<int>(nb[i]);
     return out;
@@ -136,8 +147,9 @@ Rcpp::IntegerVector sg_component_ids(SEXP ptr) {
 }
 
 // [[Rcpp::export(name = ".sg_betweenness_approx")]]
-Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed) {
-    std::vector<double> bc = streamgraph::BetweennessApprox::compute(*deref(ptr), k, n_threads, static_cast<uint64_t>(seed));
+Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed, bool normalise) {
+    std::vector<double> bc = streamgraph::BetweennessApprox::compute(
+        *deref(ptr), k, n_threads, static_cast<uint64_t>(seed), normalise);
     return Rcpp::NumericVector(bc.begin(), bc.end());
 }
 

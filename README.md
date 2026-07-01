@@ -16,9 +16,10 @@ to date on every edge, so you can query a graph that never stops growing.
 
 - Incremental connected components via Union-Find — `O(alpha(n))` per edge
 - Streaming triangle counting — global and per-node, `O(1)` to query
-- Degree tracking and degree histogram — `O(1)` per edge
-- Neighbourhood queries — sorted neighbours, `O(1)` edge existence
-- Approximate betweenness centrality — random pair sampling, OpenMP-parallel
+- Degree tracking, degree histogram and `O(1)` max degree — `O(1)` per edge
+- Neighbourhood queries — sorted (in-)neighbours, `O(1)` edge existence
+- Approximate betweenness centrality — random pair sampling, OpenMP-parallel,
+  direction-aware, normalised or raw scores
 - Batch edge ingestion with OpenMP
 - Binary save / load
 - `NodeIndex` helper to map arbitrary keys (strings, etc.) to node IDs
@@ -118,6 +119,26 @@ G2.add_edges(us, vs, n_threads=4)   # -> 3 new edges added
 
 Pass `directed=True` to `StreamGraph` for a directed graph.
 
+### Directed graph semantics
+
+- `add_edge(u, v)` stores the ordered edge `u -> v`; the reverse edge is a
+  distinct edge.
+- `degree`, `neighbours`, `degree_histogram` and `max_degree` are over
+  **out**-edges; `in_degree` and `in_neighbours` cover the incoming side.
+- Components are **weakly** connected components (direction ignored).
+- Triangles are counted on the **underlying undirected graph**: direction and
+  reciprocal edges are ignored, so the count is insertion-order independent.
+- `betweenness_approx` follows edge direction and sums dependencies over
+  ordered `(s, t)` pairs.
+
+```python
+G = sg.StreamGraph(directed=True)
+G.add_edge(0, 2); G.add_edge(1, 2); G.add_edge(2, 3)
+
+G.degree(2), G.in_degree(2)     # (1, 2)   out-degree vs in-degree
+list(G.in_neighbours(2))        # [0, 1]
+```
+
 ### Connected components
 
 ```python
@@ -156,7 +177,7 @@ for i in range(4):
     G.add_edge(0, i + 1)          # a star centred on node 0
 
 G.degree(0)               # 4
-G.max_degree()            # 4
+G.max_degree()            # 4   (maintained incrementally, O(1))
 G.avg_degree()            # 1.6
 G.density()               # 0.4
 G.degree_histogram()      # array([0, 4, 0, 0, 1])  histogram[d] = #nodes of degree d
@@ -184,6 +205,10 @@ for i in range(4):
 # k random (s,t) pairs (clamped to exact when k >= all pairs); normalised to [0, 1]
 G.betweenness_approx(k=200, n_threads=4, seed=42)
 # -> array([0.  , 0.75, 1.  , 0.75, 0.  ])   middle node highest, endpoints zero
+
+# normalise=False returns the raw betweenness estimate instead
+G.betweenness_approx(k=200, seed=42, normalise=False)
+# -> array([0., 3., 4., 3., 0.])
 ```
 
 ### Serialisation
@@ -222,6 +247,12 @@ for (i in 0:4) add_edge(G, i, i + 1L)
 n_components(G)                       # 1
 triangle_count(G)
 betweenness_approx(G, k = 200L, seed = 42L)
+betweenness_approx(G, k = 200L, seed = 42L, normalise = FALSE)
+
+D <- stream_graph(directed = TRUE)
+add_edge(D, 0L, 2L); add_edge(D, 1L, 2L)
+in_degree(D, 2L)                      # 2
+in_neighbours(D, 2L)                  # c(0L, 1L)
 
 us <- c(0L, 1L, 2L); vs <- c(1L, 2L, 0L)
 H <- stream_graph(); add_edges(H, us, vs, n_threads = 4L)

@@ -95,6 +95,18 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_in_degree
+int sg_in_degree(SEXP ptr, int u);
+RcppExport SEXP _streamgraph_sg_in_degree(SEXP ptrSEXP, SEXP uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_in_degree(ptr, u));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_has_edge
 bool sg_has_edge(SEXP ptr, int u, int v);
 RcppExport SEXP _streamgraph_sg_has_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
@@ -117,6 +129,18 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
     Rcpp::traits::input_parameter< int >::type u(uSEXP);
     rcpp_result_gen = Rcpp::wrap(sg_neighbours(ptr, u));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_in_neighbours
+Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u);
+RcppExport SEXP _streamgraph_sg_in_neighbours(SEXP ptrSEXP, SEXP uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_in_neighbours(ptr, u));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -258,8 +282,8 @@ BEGIN_RCPP
 END_RCPP
 }
 // sg_betweenness_approx
-Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed);
-RcppExport SEXP _streamgraph_sg_betweenness_approx(SEXP ptrSEXP, SEXP kSEXP, SEXP n_threadsSEXP, SEXP seedSEXP) {
+Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed, bool normalise);
+RcppExport SEXP _streamgraph_sg_betweenness_approx(SEXP ptrSEXP, SEXP kSEXP, SEXP n_threadsSEXP, SEXP seedSEXP, SEXP normaliseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -267,7 +291,8 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type k(kSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
     Rcpp::traits::input_parameter< double >::type seed(seedSEXP);
-    rcpp_result_gen = Rcpp::wrap(sg_betweenness_approx(ptr, k, n_threads, seed));
+    Rcpp::traits::input_parameter< bool >::type normalise(normaliseSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_betweenness_approx(ptr, k, n_threads, seed, normalise));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -302,8 +327,10 @@ static const R_CallMethodDef CallEntries[] = {
     {"_streamgraph_sg_n_components", (DL_FUNC) &_streamgraph_sg_n_components, 1},
     {"_streamgraph_sg_component_size", (DL_FUNC) &_streamgraph_sg_component_size, 2},
     {"_streamgraph_sg_degree", (DL_FUNC) &_streamgraph_sg_degree, 2},
+    {"_streamgraph_sg_in_degree", (DL_FUNC) &_streamgraph_sg_in_degree, 2},
     {"_streamgraph_sg_has_edge", (DL_FUNC) &_streamgraph_sg_has_edge, 3},
     {"_streamgraph_sg_neighbours", (DL_FUNC) &_streamgraph_sg_neighbours, 2},
+    {"_streamgraph_sg_in_neighbours", (DL_FUNC) &_streamgraph_sg_in_neighbours, 2},
     {"_streamgraph_sg_n_nodes", (DL_FUNC) &_streamgraph_sg_n_nodes, 1},
     {"_streamgraph_sg_n_edges", (DL_FUNC) &_streamgraph_sg_n_edges, 1},
     {"_streamgraph_sg_triangle_count", (DL_FUNC) &_streamgraph_sg_triangle_count, 1},
@@ -316,7 +343,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_streamgraph_sg_degree_histogram", (DL_FUNC) &_streamgraph_sg_degree_histogram, 1},
     {"_streamgraph_sg_component_nodes", (DL_FUNC) &_streamgraph_sg_component_nodes, 2},
     {"_streamgraph_sg_component_ids", (DL_FUNC) &_streamgraph_sg_component_ids, 1},
-    {"_streamgraph_sg_betweenness_approx", (DL_FUNC) &_streamgraph_sg_betweenness_approx, 4},
+    {"_streamgraph_sg_betweenness_approx", (DL_FUNC) &_streamgraph_sg_betweenness_approx, 5},
     {"_streamgraph_sg_save", (DL_FUNC) &_streamgraph_sg_save, 2},
     {"_streamgraph_sg_load", (DL_FUNC) &_streamgraph_sg_load, 1},
     {NULL, NULL, 0}

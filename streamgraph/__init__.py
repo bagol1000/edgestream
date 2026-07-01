@@ -2,7 +2,7 @@
 connected components, triangle counting, degree tracking, neighbourhood queries
 and approximate betweenness."""
 
-__version__ = "0.1.0.9001"
+__version__ = "0.1.0.9002"
 
 from ._streamgraph import StreamGraph
 

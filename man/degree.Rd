@@ -15,7 +15,7 @@ degree(G, u)
 Integer.
 }
 \description{
-Degree of a node
+In directed graphs this is the out-degree; see [in_degree()].
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L); add_edge(G, 0L, 2L)

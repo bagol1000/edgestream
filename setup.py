@@ -1,8 +1,8 @@
 """Build script: compiles the C++17 core and the pybind11 binding into the
-streamgraph._streamgraph extension module."""
+streamgraph._streamgraph extension module. Package metadata lives in
+pyproject.toml; only the extension build stays here."""
 
 import os
-import re
 import subprocess
 import sys
 
@@ -84,39 +84,7 @@ ext_modules = [
     Extension("streamgraph._streamgraph", sources=ext_sources, include_dirs=["src/"], language="c++", define_macros=[("STREAMGRAPH_PYTHON", "1")])
 ]
 
-with open("README.md", "r", encoding="utf8") as fh:
-    long_description = fh.read()
-
-with open(os.path.join("streamgraph", "__init__.py"), "r", encoding="utf8") as fh:
-    m = re.search(r"(?m)^\s*__version__\s*=\s*[\"']([0-9.]+)[\"']", fh.read())
-    if m is None:
-        raise ValueError("the package version could not be read")
-    __version__ = m.group(1)
-
 setuptools.setup(
-    name="streamgraph",
-    version=__version__,
-    description="streamgraph: streaming (dynamic) graph analytics",
-    long_description=long_description,
-    long_description_content_type="text/markdown",
-    author="bagol1000",
-    author_email="01199218@pw.edu.pl",
-    license="MIT",
-    install_requires=["numpy>=1.21"],
-    extras_require={"dev": ["pytest>=7"]},
-    python_requires=">=3.9",
-    packages=setuptools.find_packages(),
-    include_package_data=True,
-    package_data={"streamgraph": ["py.typed", "*.pyi"]},
-    classifiers=[
-        "Programming Language :: Python",
-        "Programming Language :: Python :: 3",
-        "Programming Language :: Python :: 3 :: Only",
-        "License :: OSI Approved :: MIT License",
-        "Intended Audience :: Science/Research",
-        "Development Status :: 3 - Alpha",
-        "Topic :: Scientific/Engineering",
-    ],
     cmdclass={"build_ext": streamgraph_build_ext},
     ext_modules=ext_modules,
 )

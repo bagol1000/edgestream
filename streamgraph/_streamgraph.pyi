@@ -85,7 +85,11 @@ class StreamGraph:
         """
 
     def same_component(self, u: int, v: int) -> bool:
-        """Return whether ``u`` and ``v`` are in the same component (O(alpha(n)))."""
+        """Return whether ``u`` and ``v`` are in the same component (O(alpha(n))).
+
+        Components ignore edge direction: in directed graphs these are the
+        *weakly* connected components.
+        """
 
     def component_id(self, u: int) -> int:
         """Return the root ID of ``u``'s component (O(alpha(n)))."""
@@ -103,13 +107,28 @@ class StreamGraph:
         """Return a uint32 array of the component root ID for each touched node."""
 
     def degree(self, u: int) -> int:
-        """Return the degree of node ``u`` (0 if never referenced)."""
+        """Return the degree of node ``u`` (0 if never referenced).
+
+        In directed graphs this is the **out**-degree; see ``in_degree``.
+        """
+
+    def in_degree(self, u: int) -> int:
+        """Return the in-degree of node ``u``.
+
+        Equals ``degree(u)`` in undirected graphs.
+        """
 
     def degree_histogram(self) -> np.ndarray:
-        """Return a uint64 array where entry ``d`` counts nodes of degree ``d``."""
+        """Return a uint64 array where entry ``d`` counts nodes of degree ``d``.
+
+        In directed graphs the histogram is over **out**-degrees.
+        """
 
     def neighbours(self, u: int) -> np.ndarray:
         """Return a sorted uint32 array of ``u``'s neighbours.
+
+        In directed graphs these are the **out**-neighbours; see
+        ``in_neighbours``.
 
         Examples
         --------
@@ -119,11 +138,21 @@ class StreamGraph:
         [1, 2, 8]
         """
 
+    def in_neighbours(self, u: int) -> np.ndarray:
+        """Return a sorted uint32 array of ``u``'s in-neighbours.
+
+        Equals ``neighbours(u)`` in undirected graphs.
+        """
+
     def has_edge(self, u: int, v: int) -> bool:
         """Return whether edge ``(u, v)`` exists (O(1))."""
 
     def triangle_count(self) -> int:
         """Return the global triangle count, each counted once (O(1)).
+
+        Triangles are counted on the underlying undirected graph: edge
+        direction and reciprocal edges are ignored, so the count does not
+        depend on insertion order.
 
         Examples
         --------
@@ -152,29 +181,37 @@ class StreamGraph:
         """Return the average degree: ``2m/n`` undirected, ``m/n`` directed."""
 
     def max_degree(self) -> int:
-        """Return the maximum degree across all nodes (O(n))."""
+        """Return the maximum (out-)degree across all nodes (O(1))."""
 
     def betweenness_approx(
-        self, k: int = 200, n_threads: int = 0, seed: int = 42
+        self, k: int = 200, n_threads: int = 0, seed: int = 42, normalise: bool = True
     ) -> np.ndarray:
         """Approximate betweenness centrality via random (s, t) pair sampling.
+
+        Directed graphs respect edge direction and sum dependencies over
+        ordered pairs; undirected graphs use unordered pairs.
 
         Parameters
         ----------
         k : int, optional
             Number of (s, t) pairs to sample. Clamped to all pairs (exact) when
-            it exceeds ``n*(n-1)/2``. Default 200.
+            it reaches ``n*(n-1)/2`` (undirected) or ``n*(n-1)`` (directed).
+            Default 200.
         n_threads : int, optional
             OpenMP threads (0 = library default). BFS over each pair is
             independent.
         seed : int, optional
             RNG seed; identical seeds give identical results. Default 42.
+        normalise : bool, optional
+            ``True`` (default) divides by the maximum so scores lie in
+            ``[0, 1]``; ``False`` returns the raw betweenness estimate
+            (sampled sums scaled by ``total_pairs / k``).
 
         Returns
         -------
         numpy.ndarray
-            ``float64`` per-node-id scores normalised to ``[0, 1]``; empty if
-            the graph has no touched nodes.
+            ``float64`` per-node-id scores; empty if the graph has no touched
+            nodes.
 
         Examples
         --------

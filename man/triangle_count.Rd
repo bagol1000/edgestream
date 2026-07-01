@@ -13,7 +13,9 @@ triangle_count(G)
 Numeric; each triangle counted once.
 }
 \description{
-Global triangle count
+Triangles are counted on the underlying undirected graph: edge direction
+and reciprocal edges are ignored, so the count does not depend on the
+order in which edges were added.
 }
 \examples{
 G <- stream_graph()

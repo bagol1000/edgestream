@@ -11,11 +11,11 @@ incrementally as edges arrive. The graph object is an external pointer; node
 IDs are non-negative integers, 0-indexed.
 }
 \author{
-\strong{Maintainer}: streamgraph authors \email{noreply@example.com}
+\strong{Maintainer}: bagol1000 \email{01199218@pw.edu.pl}
 
 Authors:
 \itemize{
-  \item streamgraph authors \email{noreply@example.com}
+  \item bagol1000 \email{01199218@pw.edu.pl}
 }
 
 }

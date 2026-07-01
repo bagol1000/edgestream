@@ -11,6 +11,8 @@ An environment of class "streamgraph_node_index".
 }
 \description{
 Maps arbitrary keys to contiguous 0-indexed node IDs (insertion order).
+Both directions are environment-backed hash maps, so lookups and inserts
+are O(1).
 }
 \examples{
 idx <- node_index()

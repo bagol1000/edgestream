@@ -20,3 +20,9 @@
 ^\.pytest_cache$
 ^streamgraph\.Rcheck$
 ^.*\.tar\.gz$
+^\.venv$
+^notatki\.md$
+^src/.*\.o$
+^src/.*\.so$
+^src/.*\.dll$
+^tests/__pycache__$

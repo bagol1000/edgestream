@@ -15,7 +15,7 @@ neighbours(G, u)
 Sorted integer vector of neighbour IDs (0-indexed).
 }
 \description{
-Sorted neighbours of a node
+In directed graphs these are the out-neighbours; see [in_neighbours()].
 }
 \examples{
 G <- stream_graph(); add_edge(G, 5L, 2L); add_edge(G, 5L, 1L)

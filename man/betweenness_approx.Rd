@@ -4,7 +4,7 @@
 \alias{betweenness_approx}
 \title{Approximate betweenness centrality}
 \usage{
-betweenness_approx(G, k = 200L, n_threads = 0L, seed = 42L)
+betweenness_approx(G, k = 200L, n_threads = 0L, seed = 42L, normalise = TRUE)
 }
 \arguments{
 \item{G}{A StreamGraph.}
@@ -14,14 +14,21 @@ betweenness_approx(G, k = 200L, n_threads = 0L, seed = 42L)
 \item{n_threads}{Integer; OpenMP threads (0 = default).}
 
 \item{seed}{Integer; RNG seed for reproducibility.}
+
+\item{normalise}{Logical; TRUE (default) divides by the maximum so scores
+lie in [0, 1], FALSE returns the raw betweenness estimate (sampled sums
+scaled by total_pairs / k).}
 }
 \value{
-Numeric vector of per-node scores in [0, 1].
+Numeric vector of per-node scores.
 }
 \description{
-Random (s, t) pair sampling with per-pair BFS; normalised to [0, 1].
+Random (s, t) pair sampling with per-pair BFS. Directed graphs respect
+edge direction and sum dependencies over ordered pairs; undirected graphs
+use unordered pairs.
 }
 \examples{
 G <- stream_graph(); for (i in 0:4) add_edge(G, i, i + 1L)
 betweenness_approx(G, k = 100L, seed = 42L)
+betweenness_approx(G, k = 100L, seed = 42L, normalise = FALSE)
 }

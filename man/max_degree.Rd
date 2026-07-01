@@ -13,7 +13,8 @@ max_degree(G)
 Integer.
 }
 \description{
-Maximum degree
+Maintained incrementally, O(1) to query. In directed graphs this is the
+maximum out-degree.
 }
 \examples{
 G <- stream_graph(); for (i in 0:3) add_edge(G, i, i + 1L)

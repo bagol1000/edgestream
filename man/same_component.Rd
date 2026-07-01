@@ -15,7 +15,8 @@ same_component(G, u, v)
 Logical.
 }
 \description{
-Whether two nodes are in the same component
+Components ignore edge direction: for directed graphs these are the
+weakly connected components.
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L)
