@@ -8,7 +8,7 @@ import time
 import numpy as np
 import pytest
 
-import streamgraph as sg
+import edgestream as sg
 
 
 def test_union_find_basic():

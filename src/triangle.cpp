@@ -1,6 +1,6 @@
-#include "streamgraph.h"
+#include "edgestream.h"
 
-namespace streamgraph {
+namespace edgestream {
 
 uint32_t count_common_neighbours(const std::vector<uint32_t>& A, const std::vector<uint32_t>& B,
                                  std::vector<uint32_t>& common_out) {

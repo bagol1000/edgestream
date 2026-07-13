@@ -1,5 +1,5 @@
 """Build script: compiles the C++17 core and the pybind11 binding into the
-streamgraph._streamgraph extension module. Package metadata lives in
+edgestream._edgestream extension module. Package metadata lives in
 pyproject.toml; only the extension build stays here."""
 
 import os
@@ -12,11 +12,12 @@ from setuptools.command.build_ext import build_ext
 
 ext_sources = [
     os.path.join("src", "dsu.cpp"),
-    os.path.join("src", "streamgraph.cpp"),
+    os.path.join("src", "edgestream.cpp"),
     os.path.join("src", "triangle.cpp"),
     os.path.join("src", "batch.cpp"),
     os.path.join("src", "serialise.cpp"),
     os.path.join("src", "betweenness.cpp"),
+    os.path.join("src", "centrality.cpp"),
     os.path.join("src", "bindings_python.cpp"),
 ]
 
@@ -31,7 +32,7 @@ def get_numpy_include():
     return numpy.get_include()
 
 
-class streamgraph_build_ext(build_ext):
+class edgestream_build_ext(build_ext):
     """Inject OpenMP and optimisation flags per platform."""
 
     def build_extensions(self):
@@ -81,10 +82,10 @@ class streamgraph_build_ext(build_ext):
 
 
 ext_modules = [
-    Extension("streamgraph._streamgraph", sources=ext_sources, include_dirs=["src/"], language="c++", define_macros=[("STREAMGRAPH_PYTHON", "1")])
+    Extension("edgestream._edgestream", sources=ext_sources, include_dirs=["src/"], language="c++", define_macros=[("EDGESTREAM_PYTHON", "1")])
 ]
 
 setuptools.setup(
-    cmdclass={"build_ext": streamgraph_build_ext},
+    cmdclass={"build_ext": edgestream_build_ext},
     ext_modules=ext_modules,
 )

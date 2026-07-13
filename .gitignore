@@ -17,7 +17,7 @@ dist/
 *.so
 *.dll
 src/*.o
-streamgraph.Rcheck/
+edgestream.Rcheck/
 *.tar.gz
 
 .DS_Store
@@ -28,3 +28,9 @@ Thumbs.db
 notatki.md
 
 .venv/
+
+.hypothesis/
+site/
+
+# prywatne notatki edukacyjne
+PRZEWODNIK.md

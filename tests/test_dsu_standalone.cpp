@@ -4,7 +4,7 @@
 #include <cassert>
 #include <cstdio>
 
-using streamgraph::DSU;
+using edgestream::DSU;
 
 int main() {
     DSU d(10);

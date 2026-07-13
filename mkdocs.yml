@@ -1,0 +1,21 @@
+site_name: edgestream
+site_description: Streaming (dynamic) graph analytics for Python and R
+repo_url: https://github.com/bagol1000/edgestream
+theme:
+  name: material
+  palette:
+    primary: teal
+  features:
+    - navigation.sections
+    - content.code.copy
+
+nav:
+  - Home: index.md
+  - Python guide: python.md
+  - R guide: r.md
+  - Benchmarks: benchmarks.md
+
+markdown_extensions:
+  - admonition
+  - pymdownx.highlight
+  - pymdownx.superfences

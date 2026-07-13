@@ -3,7 +3,7 @@
 ^pyproject\.toml$
 ^setup\.py$
 ^setup\.cfg$
-^streamgraph/.*$
+^edgestream/.*$
 ^build$
 ^dist$
 ^docs$
@@ -18,7 +18,7 @@
 ^.*\.egg-info$
 ^\.claude$
 ^\.pytest_cache$
-^streamgraph\.Rcheck$
+^edgestream\.Rcheck$
 ^.*\.tar\.gz$
 ^\.venv$
 ^notatki\.md$
@@ -26,3 +26,8 @@
 ^src/.*\.so$
 ^src/.*\.dll$
 ^tests/__pycache__$
+^mkdocs\.yml$
+^_pkgdown\.yml$
+^paper$
+^bench$
+^\.hypothesis$

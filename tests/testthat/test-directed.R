@@ -26,7 +26,7 @@ test_that("directed serialisation round-trips triangle counts", {
   for (e in list(c(0L, 2L), c(1L, 2L), c(0L, 1L), c(3L, 0L), c(3L, 1L))) {
     add_edge(G, e[1], e[2])
   }
-  p <- tempfile(fileext = ".sgph")
+  p <- tempfile(fileext = ".esg")
   save_graph(G, p)
   H <- load_graph(p)
   expect_equal(n_edges(H), n_edges(G))
@@ -85,7 +85,7 @@ test_that("max_degree is maintained incrementally", {
 test_that("load rejects trailing data", {
   G <- stream_graph()
   add_edge(G, 0L, 1L)
-  p <- tempfile(fileext = ".sgph")
+  p <- tempfile(fileext = ".esg")
   save_graph(G, p)
   con <- file(p, "ab")
   writeBin(as.raw(1:4), con)

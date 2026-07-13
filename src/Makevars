@@ -1,18 +1,19 @@
 # Only compile the C++ core and the Rcpp binding for the R package.
 # (bindings_python.cpp is excluded — it requires pybind11, not Rcpp.)
 
-PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DSTREAMGRAPH_R -I.
+PKG_CXXFLAGS = $(SHLIB_OPENMP_CXXFLAGS) -DEDGESTREAM_R -I.
 PKG_LIBS = $(SHLIB_OPENMP_CXXFLAGS)
 
 CXX_STD = CXX17
 
 SOURCES = \
     dsu.cpp \
-    streamgraph.cpp \
+    edgestream.cpp \
     triangle.cpp \
     batch.cpp \
     serialise.cpp \
     betweenness.cpp \
+    centrality.cpp \
     bindings_r.cpp \
     RcppExports.cpp
 

@@ -4,7 +4,7 @@ in-degree/in-neighbours, serialisation and the normalise flag."""
 import numpy as np
 import pytest
 
-import streamgraph as sg
+import edgestream as sg
 
 
 def test_directed_triangles_are_insertion_order_independent():
@@ -43,7 +43,7 @@ def test_directed_serialisation_roundtrip_preserves_triangles(tmp_path):
     G = sg.StreamGraph(directed=True)
     for u, v in [(0, 2), (1, 2), (0, 1), (3, 0), (3, 1)]:
         G.add_edge(u, v)
-    p = str(tmp_path / "d.sgph")
+    p = str(tmp_path / "d.esg")
     G.save(p)
     H = sg.StreamGraph.load(p)
     assert H.n_edges() == G.n_edges()
@@ -54,7 +54,7 @@ def test_directed_serialisation_roundtrip_preserves_triangles(tmp_path):
 def test_load_rejects_trailing_data(tmp_path):
     G = sg.StreamGraph()
     G.add_edge(0, 1)
-    p = str(tmp_path / "g.sgph")
+    p = str(tmp_path / "g.esg")
     G.save(p)
     with open(p, "ab") as f:
         f.write(b"junk")

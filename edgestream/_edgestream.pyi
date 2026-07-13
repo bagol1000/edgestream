@@ -1,4 +1,4 @@
-"""Type stubs and documentation for the streamgraph C++ core.
+"""Type stubs and documentation for the edgestream C++ core.
 
 Node IDs are non-negative integers (uint32), 0-indexed. All examples run in
 well under two seconds.
@@ -24,7 +24,7 @@ class StreamGraph:
 
     Examples
     --------
-    >>> import streamgraph as sg
+    >>> import edgestream as sg
     >>> G = sg.StreamGraph()
     >>> G.add_edge(0, 1)
     True
@@ -34,9 +34,12 @@ class StreamGraph:
     True
     """
 
-    def __init__(self, n_nodes: int = 0, directed: bool = False) -> None: ...
+    directed: bool
+    weighted: bool
 
-    def add_edge(self, u: int, v: int) -> bool:
+    def __init__(self, n_nodes: int = 0, directed: bool = False, weighted: bool = False) -> None: ...
+
+    def add_edge(self, u: int, v: int, w: float = 1.0) -> bool:
         """Add an edge between ``u`` and ``v``.
 
         Parameters
@@ -57,7 +60,13 @@ class StreamGraph:
         (True, False, False)
         """
 
-    def add_edges(self, us: np.ndarray, vs: np.ndarray, n_threads: int = 0) -> int:
+    def add_edges(
+        self,
+        us: np.ndarray,
+        vs: np.ndarray,
+        ws: np.ndarray | None = None,
+        n_threads: int = 0,
+    ) -> int:
         """Batch-add edges from two parallel uint32 arrays.
 
         Duplicates within the batch and self-loops are removed in a parallel
@@ -143,6 +152,59 @@ class StreamGraph:
 
         Equals ``neighbours(u)`` in undirected graphs.
         """
+
+    def remove_edge(self, u: int, v: int) -> bool:
+        """Remove edge ``(u, v)``; ``True`` if it was present.
+
+        Triangles, degrees and weights update exactly; the next component
+        query after a removal rebuilds Union-Find in O(n + m).
+        """
+
+    def edge_weight(self, u: int, v: int) -> float:
+        """Return the weight of edge ``(u, v)`` (1.0 when unweighted).
+
+        Raises ``IndexError`` if the edge is absent.
+        """
+
+    def strength(self, u: int) -> float:
+        """Return the sum of (out-)edge weights at ``u`` (degree when unweighted)."""
+
+    def total_weight(self) -> float:
+        """Return the sum of weights over all edges (``n_edges`` when unweighted)."""
+
+    def clustering_coefficient(self, u: int) -> float:
+        """Return the local clustering coefficient ``2T/(d(d-1))``.
+
+        Computed on the underlying undirected graph; 0 for degree < 2.
+        """
+
+    def avg_clustering(self) -> float:
+        """Return the mean local clustering coefficient over touched nodes."""
+
+    def strong_component_ids(self) -> np.ndarray:
+        """Return SCC labels per touched node (smallest node id in each SCC).
+
+        Iterative Tarjan, on demand, O(n + m); equals connected components for
+        undirected graphs.
+        """
+
+    def n_strong_components(self) -> int:
+        """Return the number of strongly connected components."""
+
+    def pagerank(
+        self, damping: float = 0.85, tol: float = 1e-10, max_iter: int = 100
+    ) -> np.ndarray:
+        """Return PageRank per node id (power iteration; sums to 1).
+
+        Weighted graphs distribute rank proportionally to edge weights;
+        dangling nodes redistribute uniformly.
+        """
+
+    def edge_list(self, weights: bool = False) -> tuple:
+        """Return ``(us, vs)`` or ``(us, vs, ws)`` arrays listing each edge once."""
+
+    def n_ids(self) -> int:
+        """Return the allocated id range (max node id + 1)."""
 
     def has_edge(self, u: int, v: int) -> bool:
         """Return whether edge ``(u, v)`` exists (O(1))."""

@@ -1,21 +1,27 @@
-Package: streamgraph
+Package: edgestream
 Type: Package
 Title: Streaming (Dynamic) Graph Analytics
-Version: 0.1.0.9002
-Date: 2026-07-01
+Version: 0.2.0
+Date: 2026-07-12
 Authors@R: person("bagol1000", role = c("aut", "cre"),
     email = "01199218@pw.edu.pl")
 Description: Maintains graph metrics incrementally as edges arrive in a stream.
     Provides an in-memory dynamic graph with incremental connected components
-    (Union-Find), triangle counting, degree tracking, neighbourhood queries and
-    approximate betweenness, backed by a 'C++17' core with 'OpenMP' support.
-    Node IDs are 0-indexed.
+    (Union-Find), triangle counting, clustering coefficients, degree tracking,
+    neighbourhood queries, edge weights, edge removal, PageRank, strongly
+    connected components and approximate betweenness, backed by a 'C++17' core
+    with 'OpenMP' support. Node IDs are 0-indexed.
 License: MIT + file LICENSE
-URL: https://github.com/bagol1000/streamgraph
-BugReports: https://github.com/bagol1000/streamgraph/issues
+URL: https://github.com/bagol1000/edgestream
+BugReports: https://github.com/bagol1000/edgestream/issues
 Imports: Rcpp
 LinkingTo: Rcpp
-Suggests: testthat (>= 3.0.0)
+Suggests:
+    testthat (>= 3.0.0),
+    igraph,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
 Encoding: UTF-8
 SystemRequirements: C++17, OpenMP
 Config/testthat/edition: 3

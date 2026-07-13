@@ -1,6 +1,6 @@
 #include "dsu.h"
 
-namespace streamgraph {
+namespace edgestream {
 
 void DSU::init(uint32_t n) {
     parent.resize(n);

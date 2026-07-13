@@ -1,13 +1,13 @@
-#streamgraph R API. The graph returned by stream_graph() is an external pointer;
+#edgestream R API. The graph returned by stream_graph() is an external pointer;
 #pass it as the first argument to every function. Node IDs are 0-indexed.
 
-#' streamgraph: streaming (dynamic) graph analytics
+#' edgestream: streaming (dynamic) graph analytics
 #'
 #' Maintains connected components, triangle counts, degrees and basic centrality
 #' incrementally as edges arrive. The graph object is an external pointer; node
 #' IDs are non-negative integers, 0-indexed.
 #'
-#' @useDynLib streamgraph, .registration = TRUE
+#' @useDynLib edgestream, .registration = TRUE
 #' @importFrom Rcpp evalCpp
 #' @keywords internal
 "_PACKAGE"
@@ -17,45 +17,73 @@
 #' @param n_nodes Integer; 0 to auto-grow (default), or N to pre-allocate N
 #'   node slots when an upper bound is known.
 #' @param directed Logical; whether the graph is directed. Default FALSE.
+#' @param weighted Logical; whether edges carry a positive weight. Default FALSE.
 #' @return An external pointer to the underlying C++ StreamGraph.
 #' @examples
 #' G <- stream_graph()
 #' add_edge(G, 0L, 1L)
 #' n_edges(G)
+#' W <- stream_graph(weighted = TRUE)
+#' add_edge(W, 0L, 1L, w = 2.5)
 #' @export
-stream_graph <- function(n_nodes = 0L, directed = FALSE) {
-    .sg_create(as.integer(n_nodes), as.logical(directed))
+stream_graph <- function(n_nodes = 0L, directed = FALSE, weighted = FALSE) {
+    .sg_create(as.integer(n_nodes), as.logical(directed), as.logical(weighted))
 }
 
 #' Add a single edge
 #'
 #' @param G A StreamGraph (from [stream_graph()]).
 #' @param u,v Node IDs (0-indexed). Storage auto-expands to fit.
+#' @param w Numeric edge weight (> 0); used only by weighted graphs. A
+#'   duplicate edge keeps its originally stored weight.
 #' @return Logical: TRUE if the edge was new, FALSE for a self-loop or duplicate.
 #' @examples
 #' G <- stream_graph()
 #' add_edge(G, 0L, 1L)
 #' add_edge(G, 0L, 1L)  # FALSE: duplicate
 #' @export
-add_edge <- function(G, u, v) {
-    .sg_add_edge(G, as.integer(u), as.integer(v))
+add_edge <- function(G, u, v, w = 1.0) {
+    .sg_add_edge(G, as.integer(u), as.integer(v), as.double(w))
+}
+
+#' Remove a single edge
+#'
+#' Triangles, degrees and weights update exactly; the Union-Find structure
+#' cannot split, so the next component query after a removal rebuilds it in
+#' O(n + m). A node stays "touched" after losing all edges (it becomes an
+#' isolated single-node component).
+#'
+#' @param G A StreamGraph.
+#' @param u,v Node IDs (0-indexed).
+#' @return Logical: TRUE if the edge was present and removed.
+#' @examples
+#' G <- stream_graph()
+#' add_edge(G, 0L, 1L); add_edge(G, 1L, 2L)
+#' remove_edge(G, 1L, 2L)
+#' n_components(G)  # 2: {0, 1} and isolated {2}
+#' @export
+remove_edge <- function(G, u, v) {
+    .sg_remove_edge(G, as.integer(u), as.integer(v))
 }
 
 #' Add many edges in a batch
 #'
 #' Duplicates within the batch and self-loops are removed in a parallel pre-pass;
-#' unique edges are then applied serially.
+#' unique edges are then applied serially. With weights, the first occurrence of
+#' a duplicated edge wins.
 #'
 #' @param G A StreamGraph.
 #' @param us,vs Integer vectors of equal length holding 0-indexed endpoints.
+#' @param ws Optional numeric vector of edge weights (> 0), same length as us.
 #' @param n_threads Integer; OpenMP threads for the dedup sort (0 = default).
 #' @return Numeric: the number of new edges added.
 #' @examples
 #' G <- stream_graph()
 #' add_edges(G, c(0L, 1L, 2L), c(1L, 2L, 0L))
 #' @export
-add_edges <- function(G, us, vs, n_threads = 0L) {
-    .sg_add_edges(G, as.integer(us), as.integer(vs), as.integer(n_threads))
+add_edges <- function(G, us, vs, ws = NULL, n_threads = 0L) {
+    if (!is.null(ws)) ws <- as.double(ws)
+    .sg_add_edges(G, as.integer(us), as.integer(vs), ws, as.integer(n_threads))
 }
 
 #' Whether two nodes are in the same component
@@ -337,9 +365,9 @@ max_degree <- function(G) {
 
 #' Approximate betweenness centrality
 #'
-#' Random (s, t) pair sampling with per-pair BFS. Directed graphs respect
-#' edge direction and sum dependencies over ordered pairs; undirected graphs
-#' use unordered pairs.
+#' Random (s, t) pair sampling with per-pair BFS (Dijkstra for weighted
+#' graphs). Directed graphs respect edge direction and sum dependencies over
+#' ordered pairs; undirected graphs use unordered pairs.
 #'
 #' @param G A StreamGraph.
 #' @param k Integer; number of sampled pairs (clamped to all pairs => exact).
@@ -388,6 +416,202 @@ load_graph <- function(path) {
     .sg_load(path)
 }
 
+#' Weight of an edge
+#'
+#' @param G A StreamGraph.
+#' @param u,v Node IDs (0-indexed).
+#' @return Numeric; 1.0 for unweighted graphs. Errors if the edge is absent.
+#' @examples
+#' W <- stream_graph(weighted = TRUE); add_edge(W, 0L, 1L, w = 2.5)
+#' edge_weight(W, 0L, 1L)
+#' @export
+edge_weight <- function(G, u, v) {
+    .sg_edge_weight(G, as.integer(u), as.integer(v))
+}
+
+#' Strength (weighted degree) of a node
+#'
+#' Sum of (out-)edge weights at u; equals [degree()] when unweighted.
+#'
+#' @param G A StreamGraph.
+#' @param u Node ID (0-indexed).
+#' @return Numeric.
+#' @examples
+#' W <- stream_graph(weighted = TRUE)
+#' add_edge(W, 0L, 1L, w = 2); add_edge(W, 0L, 2L, w = 3)
+#' strength(W, 0L)  # 5
+#' @export
+strength <- function(G, u) {
+    .sg_strength(G, as.integer(u))
+}
+
+#' Total weight of all edges
+#'
+#' @param G A StreamGraph.
+#' @return Numeric; equals [n_edges()] when unweighted.
+#' @examples
+#' W <- stream_graph(weighted = TRUE); add_edge(W, 0L, 1L, w = 2.5)
+#' total_weight(W)
+#' @export
+total_weight <- function(G) {
+    .sg_total_weight(G)
+}
+
+#' Local clustering coefficient
+#'
+#' 2T(u) / (d(u) (d(u) - 1)) on the underlying undirected graph, where T(u)
+#' is the number of triangles through u; 0 for degree < 2.
+#'
+#' @param G A StreamGraph.
+#' @param u Node ID (0-indexed).
+#' @return Numeric in [0, 1].
+#' @examples
+#' G <- stream_graph()
+#' for (e in list(c(0, 1), c(1, 2), c(0, 2))) add_edge(G, e[1], e[2])
+#' clustering_coefficient(G, 0L)  # 1
+#' @export
+clustering_coefficient <- function(G, u) {
+    .sg_clustering_coefficient(G, as.integer(u))
+}
+
+#' Average local clustering coefficient
+#'
+#' Mean of [clustering_coefficient()] over all touched nodes.
+#'
+#' @param G A StreamGraph.
+#' @return Numeric in [0, 1].
+#' @examples
+#' G <- stream_graph()
+#' for (e in list(c(0, 1), c(1, 2), c(0, 2), c(2, 3))) add_edge(G, e[1], e[2])
+#' avg_clustering(G)
+#' @export
+avg_clustering <- function(G) {
+    .sg_avg_clustering(G)
+}
+
+#' Strongly connected component labels
+#'
+#' Iterative Tarjan on demand, O(n + m). For each touched node (ascending ID)
+#' the label is the smallest node ID in its SCC. For undirected graphs this
+#' equals the connected components.
+#'
+#' @param G A StreamGraph.
+#' @return Integer vector, one entry per touched node.
+#' @examples
+#' D <- stream_graph(directed = TRUE)
+#' for (e in list(c(0, 1), c(1, 2), c(2, 0), c(2, 3))) add_edge(D, e[1], e[2])
+#' strong_component_ids(D)  # c(0, 0, 0, 3): cycle {0,1,2} plus {3}
+#' @export
+strong_component_ids <- function(G) {
+    .sg_strong_component_ids(G)
+}
+
+#' Number of strongly connected components
+#'
+#' @param G A StreamGraph.
+#' @return Integer.
+#' @examples
+#' D <- stream_graph(directed = TRUE)
+#' add_edge(D, 0L, 1L); add_edge(D, 1L, 0L); add_edge(D, 1L, 2L)
+#' n_strong_components(D)  # 2
+#' @export
+n_strong_components <- function(G) {
+    .sg_n_strong_components(G)
+}
+
+#' PageRank
+#'
+#' Power iteration on demand. Weighted graphs distribute rank proportionally
+#' to edge weights; dangling nodes redistribute uniformly over touched nodes.
+#'
+#' @param G A StreamGraph.
+#' @param damping Numeric damping factor. Default 0.85.
+#' @param tol Numeric L1 convergence tolerance. Default 1e-10.
+#' @param max_iter Integer iteration cap. Default 100L.
+#' @return Numeric vector indexed by node ID over the allocated range
+#'   (untouched IDs get 0); sums to 1.
+#' @examples
+#' G <- stream_graph(); for (i in 0:3) add_edge(G, i, i + 1L)
+#' pagerank(G)
+#' @export
+pagerank <- function(G, damping = 0.85, tol = 1e-10, max_iter = 100L) {
+    .sg_pagerank(G, as.double(damping), as.double(tol), as.integer(max_iter))
+}
+
+#' Edge list as a data.frame
+#'
+#' Each edge appears once (undirected: u < v; directed: every out-edge).
+#'
+#' @param G A StreamGraph.
+#' @return data.frame with integer columns u, v and numeric w (1 when
+#'   unweighted).
+#' @examples
+#' G <- stream_graph(); add_edge(G, 0L, 1L); add_edge(G, 1L, 2L)
+#' edge_list(G)
+#' @export
+edge_list <- function(G) {
+    as.data.frame(.sg_edge_list(G))
+}
+
+#' Convert to an igraph graph
+#'
+#' Requires the igraph package. Node IDs are shifted to 1-indexed igraph
+#' vertices (vertex i+1 is edgestream node i); weights become the igraph
+#' `weight` edge attribute.
+#'
+#' @param G A StreamGraph.
+#' @return An igraph graph object.
+#' @examples
+#' if (requireNamespace("igraph", quietly = TRUE)) {
+#'   G <- stream_graph(); add_edge(G, 0L, 1L)
+#'   ig <- as_igraph(G)
+#' }
+#' @export
+as_igraph <- function(G) {
+    if (!requireNamespace("igraph", quietly = TRUE)) {
+        stop("as_igraph() requires the igraph package: install.packages(\"igraph\")")
+    }
+    el <- .sg_edge_list(G)
+    n <- if (length(el$u) == 0) 0L else max(el$u, el$v) + 1L
+    ig <- igraph::make_empty_graph(n = n, directed = .sg_is_directed(G))
+    if (length(el$u) > 0) {
+        edges <- rbind(el$u + 1L, el$v + 1L)
+        ig <- igraph::add_edges(ig, as.vector(edges))
+        if (.sg_is_weighted(G)) igraph::E(ig)$weight <- el$w
+    }
+    ig
+}
+
+#' Convert from an igraph graph
+#'
+#' igraph vertex i becomes edgestream node i-1; a `weight` edge attribute, if
+#' present, is carried over into a weighted StreamGraph.
+#'
+#' @param ig An igraph graph object.
+#' @return A StreamGraph.
+#' @examples
+#' if (requireNamespace("igraph", quietly = TRUE)) {
+#'   ig <- igraph::make_ring(5)
+#'   G <- from_igraph(ig)
+#'   n_edges(G)  # 5
+#' }
+#' @export
+from_igraph <- function(ig) {
+    if (!requireNamespace("igraph", quietly = TRUE)) {
+        stop("from_igraph() requires the igraph package: install.packages(\"igraph\")")
+    }
+    weighted <- "weight" %in% igraph::edge_attr_names(ig)
+    G <- stream_graph(n_nodes = igraph::vcount(ig),
+                      directed = igraph::is_directed(ig),
+                      weighted = weighted)
+    el <- igraph::as_edgelist(ig, names = FALSE)
+    if (nrow(el) > 0) {
+        ws <- if (weighted) igraph::E(ig)$weight else NULL
+        add_edges(G, as.integer(el[, 1]) - 1L, as.integer(el[, 2]) - 1L, ws = ws)
+    }
+    G
+}
+
 #NodeIndex: pure R, an environment with two hash maps (key -> id, id -> key)
 
 #' Create a node index
@@ -396,7 +620,7 @@ load_graph <- function(path) {
 #' Both directions are environment-backed hash maps, so lookups and inserts
 #' are O(1).
 #'
-#' @return An environment of class "streamgraph_node_index".
+#' @return An environment of class "edgestream_node_index".
 #' @examples
 #' idx <- node_index()
 #' node_id(idx, "alice")
@@ -406,7 +630,7 @@ node_index <- function() {
     idx$key_to_id <- new.env(parent = emptyenv())
     idx$id_to_key <- new.env(parent = emptyenv())
     idx$n <- 0L
-    class(idx) <- "streamgraph_node_index"
+    class(idx) <- "edgestream_node_index"
     idx
 }
 

@@ -5,7 +5,7 @@
 #include <cstdint>
 #include <vector>
 
-namespace streamgraph {
+namespace edgestream {
 
 struct DSU {
     std::vector<uint32_t> parent;

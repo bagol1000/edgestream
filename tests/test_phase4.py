@@ -1,6 +1,6 @@
 """Phase 4 tests: approximate betweenness and NodeIndex."""
 
-import streamgraph as sg
+import edgestream as sg
 
 
 def test_betweenness_path_graph():

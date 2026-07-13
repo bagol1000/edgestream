@@ -1,0 +1,125 @@
+---
+title: "edgestream: streaming graph analytics"
+output: rmarkdown::html_vignette
+vignette: >
+  %\VignetteIndexEntry{edgestream: streaming graph analytics}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+---
+
+```{r, include = FALSE}
+knitr::opts_chunk$set(collapse = TRUE, comment = "#>")
+```
+
+Most graph tools assume a static graph: load everything, run an algorithm,
+done. `edgestream` instead keeps its metrics up to date on every edge, so you
+can query a graph that never stops growing — connected components, triangle
+counts, degrees and clustering are maintained incrementally, and centrality
+(betweenness, PageRank) is computed on demand.
+
+Node IDs are non-negative integers, **0-indexed**. The graph object is an
+external pointer to a C++ structure; pass it as the first argument to every
+function.
+
+## A streaming session
+
+The canonical use case: transactions arrive between accounts and we want live
+answers about connectivity and clustering.
+
+```{r}
+library(edgestream)
+
+G   <- stream_graph()
+idx <- node_index()   # maps arbitrary keys to integer node IDs
+
+transactions <- list(
+  c("acc_001", "acc_017"),
+  c("acc_017", "acc_999"),
+  c("acc_999", "acc_001"),   # closes a triangle
+  c("acc_500", "acc_777")
+)
+for (tx in transactions) {
+  add_edge(G, node_id(idx, tx[1]), node_id(idx, tx[2]))
+}
+
+same_component(G, get_id(idx, "acc_001"), get_id(idx, "acc_999"))
+n_components(G)
+triangle_count(G)
+clustering_coefficient(G, get_id(idx, "acc_001"))
+```
+
+Every query above is O(1) or O(alpha(n)) — nothing is recomputed from
+scratch.
+
+## Weighted edges
+
+Pass `weighted = TRUE` to store a positive weight per edge. Weights feed
+`strength()`, PageRank and (Dijkstra-based) betweenness.
+
+```{r}
+W <- stream_graph(weighted = TRUE)
+add_edge(W, 0L, 1L, w = 2.5)
+add_edge(W, 1L, 2L, w = 1.0)
+edge_weight(W, 0L, 1L)
+strength(W, 1L)
+total_weight(W)
+```
+
+## Removing edges
+
+`remove_edge()` updates triangles, degrees and weights exactly. Union-Find
+cannot split, so the next component query after a removal transparently
+rebuilds it in O(n + m); everything else stays incremental.
+
+```{r}
+G2 <- stream_graph()
+add_edge(G2, 0L, 1L); add_edge(G2, 1L, 2L)
+remove_edge(G2, 1L, 2L)
+n_components(G2)   # {0,1} plus the now-isolated node 2
+```
+
+## Directed graphs
+
+```{r}
+D <- stream_graph(directed = TRUE)
+add_edge(D, 0L, 1L); add_edge(D, 1L, 2L); add_edge(D, 2L, 0L); add_edge(D, 2L, 3L)
+
+degree(D, 2L)        # out-degree
+in_degree(D, 2L)
+strong_component_ids(D)   # cycle {0,1,2} is one SCC, {3} another
+n_components(D)           # weakly connected: all four nodes
+```
+
+Triangles are counted on the underlying undirected graph, `degree()` /
+`neighbours()` are over out-edges, and components ignore direction (weak
+components); use `strong_component_ids()` for direction-aware components.
+
+## Centrality on demand
+
+```{r}
+P <- stream_graph()
+for (i in 0:4) add_edge(P, i, i + 1L)
+
+betweenness_approx(P, k = 1000L, seed = 42L)
+pagerank(P)[1:6]
+```
+
+`betweenness_approx()` samples k random (s, t) pairs; increase k for
+precision (it clamps to exact once k covers every pair). `normalise = FALSE`
+returns raw dependency sums instead of [0, 1] scores.
+
+## Interop and persistence
+
+```{r, eval = requireNamespace("igraph", quietly = TRUE)}
+ig <- as_igraph(G)      # igraph out
+G3 <- from_igraph(ig)   # and back
+```
+
+```{r}
+edge_list(G)[1:3, ]     # plain data.frame export
+
+p <- tempfile(fileext = ".esg")
+save_graph(G, p)
+H <- load_graph(p)
+n_edges(H) == n_edges(G)
+```

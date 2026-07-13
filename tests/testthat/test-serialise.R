@@ -2,7 +2,7 @@ test_that("save_graph / load_graph round-trips graph state", {
   G <- stream_graph()
   for (i in 0:49) add_edge(G, i %% 10, (i * 7 + 3) %% 10)
 
-  path <- tempfile(fileext = ".sgph")
+  path <- tempfile(fileext = ".esg")
   save_graph(G, path)
   H <- load_graph(path)
 
@@ -16,7 +16,7 @@ test_that("loaded graph preserves connectivity", {
   G <- stream_graph(n_nodes = 200L)
   for (i in 1:2000) add_edge(G, sample(0:199, 1), sample(0:199, 1))
 
-  path <- tempfile(fileext = ".sgph")
+  path <- tempfile(fileext = ".esg")
   save_graph(G, path)
   H <- load_graph(path)
 

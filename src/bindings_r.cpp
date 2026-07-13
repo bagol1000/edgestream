@@ -2,10 +2,11 @@
 #include <Rcpp.h>
 
 #include <memory>
+#include <vector>
 
-#include "streamgraph.h"
+#include "edgestream.h"
 
-using streamgraph::StreamGraph;
+using edgestream::StreamGraph;
 typedef Rcpp::XPtr<StreamGraph> StreamGraphPtr;
 
 namespace {
@@ -21,18 +22,27 @@ inline StreamGraph* deref(SEXP ptr) {
     return p.get();
 }
 
+inline Rcpp::IntegerVector to_int_vector(const std::vector<uint32_t>& v) {
+    Rcpp::IntegerVector out(v.size());
+    for (size_t i = 0; i < v.size(); ++i) out[i] = static_cast<int>(v[i]);
+    return out;
+}
+
 }
 
 // [[Rcpp::export(name = ".sg_create")]]
-SEXP sg_create(int n_nodes, bool directed) {
+SEXP sg_create(int n_nodes, bool directed, bool weighted) {
     if (n_nodes < 0) Rcpp::stop("n_nodes must be non-negative");
-    StreamGraph* g = new StreamGraph(static_cast<uint32_t>(n_nodes), directed);
+    StreamGraph* g = new StreamGraph(static_cast<uint32_t>(n_nodes), directed, weighted);
     StreamGraphPtr ptr(g, true);   //XPtr finaliser deletes on GC
     return ptr;
 }
 
 // [[Rcpp::export(name = ".sg_add_edge")]]
-bool sg_add_edge(SEXP ptr, int u, int v) { return deref(ptr)->add_edge(as_node(u), as_node(v)); }
+bool sg_add_edge(SEXP ptr, int u, int v, double w) { return deref(ptr)->add_edge(as_node(u), as_node(v), w); }
+
+// [[Rcpp::export(name = ".sg_remove_edge")]]
+bool sg_remove_edge(SEXP ptr, int u, int v) { return deref(ptr)->remove_edge(as_node(u), as_node(v)); }
 
 // [[Rcpp::export(name = ".sg_same_component")]]
 bool sg_same_component(SEXP ptr, int u, int v) { return deref(ptr)->same_component(as_node(u), as_node(v)); }
@@ -52,30 +62,35 @@ int sg_degree(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->degree(as_n
 // [[Rcpp::export(name = ".sg_in_degree")]]
 int sg_in_degree(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->in_degree(as_node(u))); }
 
+// [[Rcpp::export(name = ".sg_strength")]]
+double sg_strength(SEXP ptr, int u) { return deref(ptr)->strength(as_node(u)); }
+
 // [[Rcpp::export(name = ".sg_has_edge")]]
 bool sg_has_edge(SEXP ptr, int u, int v) { return deref(ptr)->has_edge(as_node(u), as_node(v)); }
 
+// [[Rcpp::export(name = ".sg_edge_weight")]]
+double sg_edge_weight(SEXP ptr, int u, int v) { return deref(ptr)->edge_weight(as_node(u), as_node(v)); }
+
+// [[Rcpp::export(name = ".sg_total_weight")]]
+double sg_total_weight(SEXP ptr) { return deref(ptr)->total_weight(); }
+
 // [[Rcpp::export(name = ".sg_neighbours")]]
-Rcpp::IntegerVector sg_neighbours(SEXP ptr, int u) {
-    std::vector<uint32_t> nb = deref(ptr)->neighbours(as_node(u));
-    Rcpp::IntegerVector out(nb.size());
-    for (size_t i = 0; i < nb.size(); ++i) out[i] = static_cast<int>(nb[i]);
-    return out;
-}
+Rcpp::IntegerVector sg_neighbours(SEXP ptr, int u) { return to_int_vector(deref(ptr)->neighbours(as_node(u))); }
 
 // [[Rcpp::export(name = ".sg_in_neighbours")]]
-Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u) {
-    std::vector<uint32_t> nb = deref(ptr)->in_neighbours(as_node(u));
-    Rcpp::IntegerVector out(nb.size());
-    for (size_t i = 0; i < nb.size(); ++i) out[i] = static_cast<int>(nb[i]);
-    return out;
-}
+Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u) { return to_int_vector(deref(ptr)->in_neighbours(as_node(u))); }
 
 // [[Rcpp::export(name = ".sg_n_nodes")]]
 int sg_n_nodes(SEXP ptr) { return static_cast<int>(deref(ptr)->n_nodes()); }
 
 // [[Rcpp::export(name = ".sg_n_edges")]]
 double sg_n_edges(SEXP ptr) { return static_cast<double>(deref(ptr)->n_edges); }
+
+// [[Rcpp::export(name = ".sg_is_directed")]]
+bool sg_is_directed(SEXP ptr) { return deref(ptr)->directed; }
+
+// [[Rcpp::export(name = ".sg_is_weighted")]]
+bool sg_is_weighted(SEXP ptr) { return deref(ptr)->weighted; }
 
 // [[Rcpp::export(name = ".sg_triangle_count")]]
 double sg_triangle_count(SEXP ptr) {
@@ -87,15 +102,17 @@ double sg_triangle_count(SEXP ptr) {
 int sg_local_triangles(SEXP ptr, int u) { return static_cast<int>(deref(ptr)->local_triangles(as_node(u))); }
 
 // [[Rcpp::export(name = ".sg_all_local_triangles")]]
-Rcpp::IntegerVector sg_all_local_triangles(SEXP ptr) {
-    std::vector<uint32_t> t = deref(ptr)->all_local_triangles();
-    Rcpp::IntegerVector out(t.size());
-    for (size_t i = 0; i < t.size(); ++i) out[i] = static_cast<int>(t[i]);
-    return out;
-}
+Rcpp::IntegerVector sg_all_local_triangles(SEXP ptr) { return to_int_vector(deref(ptr)->all_local_triangles()); }
+
+// [[Rcpp::export(name = ".sg_clustering_coefficient")]]
+double sg_clustering_coefficient(SEXP ptr, int u) { return deref(ptr)->clustering_coefficient(as_node(u)); }
+
+// [[Rcpp::export(name = ".sg_avg_clustering")]]
+double sg_avg_clustering(SEXP ptr) { return deref(ptr)->avg_clustering(); }
 
 // [[Rcpp::export(name = ".sg_add_edges")]]
-double sg_add_edges(SEXP ptr, Rcpp::IntegerVector us, Rcpp::IntegerVector vs, int n_threads) {
+double sg_add_edges(SEXP ptr, Rcpp::IntegerVector us, Rcpp::IntegerVector vs,
+                    Rcpp::Nullable<Rcpp::NumericVector> ws, int n_threads) {
     if (us.size() != vs.size()) Rcpp::stop("us and vs must have the same length");
     size_t m = static_cast<size_t>(us.size());
     std::vector<uint32_t> cu(m), cv(m);
@@ -104,7 +121,14 @@ double sg_add_edges(SEXP ptr, Rcpp::IntegerVector us, Rcpp::IntegerVector vs, in
         cu[i] = static_cast<uint32_t>(us[i]);
         cv[i] = static_cast<uint32_t>(vs[i]);
     }
-    uint64_t added = deref(ptr)->add_edges(cu.data(), cv.data(), m, n_threads);
+    const double* pw = nullptr;
+    Rcpp::NumericVector wv;
+    if (ws.isNotNull()) {
+        wv = ws.get();
+        if (static_cast<size_t>(wv.size()) != m) Rcpp::stop("ws must have the same length as us/vs");
+        pw = wv.begin();
+    }
+    uint64_t added = deref(ptr)->add_edges(cu.data(), cv.data(), pw, m, n_threads);
     return static_cast<double>(added);
 }
 
@@ -131,24 +155,38 @@ Rcpp::NumericVector sg_degree_histogram(SEXP ptr) {
 }
 
 // [[Rcpp::export(name = ".sg_component_nodes")]]
-Rcpp::IntegerVector sg_component_nodes(SEXP ptr, int u) {
-    std::vector<uint32_t> c = deref(ptr)->component_nodes(as_node(u));
-    Rcpp::IntegerVector out(c.size());
-    for (size_t i = 0; i < c.size(); ++i) out[i] = static_cast<int>(c[i]);
-    return out;
-}
+Rcpp::IntegerVector sg_component_nodes(SEXP ptr, int u) { return to_int_vector(deref(ptr)->component_nodes(as_node(u))); }
 
 // [[Rcpp::export(name = ".sg_component_ids")]]
-Rcpp::IntegerVector sg_component_ids(SEXP ptr) {
-    std::vector<uint32_t> c = deref(ptr)->component_ids();
-    Rcpp::IntegerVector out(c.size());
-    for (size_t i = 0; i < c.size(); ++i) out[i] = static_cast<int>(c[i]);
-    return out;
+Rcpp::IntegerVector sg_component_ids(SEXP ptr) { return to_int_vector(deref(ptr)->component_ids()); }
+
+// [[Rcpp::export(name = ".sg_strong_component_ids")]]
+Rcpp::IntegerVector sg_strong_component_ids(SEXP ptr) { return to_int_vector(deref(ptr)->strong_component_ids()); }
+
+// [[Rcpp::export(name = ".sg_n_strong_components")]]
+int sg_n_strong_components(SEXP ptr) { return static_cast<int>(deref(ptr)->n_strong_components()); }
+
+// [[Rcpp::export(name = ".sg_edge_list")]]
+Rcpp::List sg_edge_list(SEXP ptr) {
+    std::vector<uint32_t> us, vs;
+    std::vector<double> ws;
+    deref(ptr)->edge_list(us, vs, &ws);
+    return Rcpp::List::create(
+        Rcpp::Named("u") = to_int_vector(us),
+        Rcpp::Named("v") = to_int_vector(vs),
+        Rcpp::Named("w") = Rcpp::NumericVector(ws.begin(), ws.end())
+    );
+}
+
+// [[Rcpp::export(name = ".sg_pagerank")]]
+Rcpp::NumericVector sg_pagerank(SEXP ptr, double damping, double tol, int max_iter) {
+    std::vector<double> pr = deref(ptr)->pagerank(damping, tol, max_iter);
+    return Rcpp::NumericVector(pr.begin(), pr.end());
 }
 
 // [[Rcpp::export(name = ".sg_betweenness_approx")]]
 Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed, bool normalise) {
-    std::vector<double> bc = streamgraph::BetweennessApprox::compute(
+    std::vector<double> bc = edgestream::BetweennessApprox::compute(
         *deref(ptr), k, n_threads, static_cast<uint64_t>(seed), normalise);
     return Rcpp::NumericVector(bc.begin(), bc.end());
 }

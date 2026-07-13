@@ -1,6 +1,7 @@
 //Robin Hood open-addressing hash set for uint64 edge keys.
 //Sentinel UINT64_MAX is never a valid edge key (it would require a self-loop, which add_edge rejects).
-//Power-of-two capacity from 1024, rehash to 2x past 0.7 load, linear probing, no erase (no deletion in v1).
+//Power-of-two capacity from 1024, rehash to 2x past 0.7 load, linear probing;
+//erase uses backward-shift deletion (no tombstones, probe invariants preserved).
 #pragma once
 
 #include <algorithm>
@@ -9,7 +10,7 @@
 #include <utility>
 #include <vector>
 
-namespace streamgraph {
+namespace edgestream {
 
 class FlatHashSet {
 public:
@@ -48,6 +49,30 @@ public:
     bool insert(uint64_t key) {
         if ((size_ + 1) * 10 > keys_.size() * 7) rehash(keys_.size() << 1);
         return insert_no_resize(key);
+    }
+
+    //returns true if the key was present and removed
+    bool erase(uint64_t key) {
+        size_t pos = home(key);
+        size_t dist = 0;
+        while (true) {
+            uint64_t slot = keys_[pos];
+            if (slot == EMPTY) return false;
+            if (slot == key) break;
+            if (probe_distance(slot, pos) < dist) return false;
+            pos = (pos + 1) & mask_;
+            ++dist;
+        }
+        //backward shift: pull each displaced successor one slot closer to home
+        size_t next = (pos + 1) & mask_;
+        while (keys_[next] != EMPTY && probe_distance(keys_[next], next) > 0) {
+            keys_[pos] = keys_[next];
+            pos = next;
+            next = (next + 1) & mask_;
+        }
+        keys_[pos] = EMPTY;
+        --size_;
+        return true;
     }
 
 private:

@@ -11,33 +11,48 @@ Rcpp::Rostream<false>& Rcpp::Rcerr = Rcpp::Rcpp_cerr_get();
 #endif
 
 // sg_create
-SEXP sg_create(int n_nodes, bool directed);
-RcppExport SEXP _streamgraph_sg_create(SEXP n_nodesSEXP, SEXP directedSEXP) {
+SEXP sg_create(int n_nodes, bool directed, bool weighted);
+RcppExport SEXP _edgestream_sg_create(SEXP n_nodesSEXP, SEXP directedSEXP, SEXP weightedSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< int >::type n_nodes(n_nodesSEXP);
     Rcpp::traits::input_parameter< bool >::type directed(directedSEXP);
-    rcpp_result_gen = Rcpp::wrap(sg_create(n_nodes, directed));
+    Rcpp::traits::input_parameter< bool >::type weighted(weightedSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_create(n_nodes, directed, weighted));
     return rcpp_result_gen;
 END_RCPP
 }
 // sg_add_edge
-bool sg_add_edge(SEXP ptr, int u, int v);
-RcppExport SEXP _streamgraph_sg_add_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
+bool sg_add_edge(SEXP ptr, int u, int v, double w);
+RcppExport SEXP _edgestream_sg_add_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP, SEXP wSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
     Rcpp::traits::input_parameter< int >::type u(uSEXP);
     Rcpp::traits::input_parameter< int >::type v(vSEXP);
-    rcpp_result_gen = Rcpp::wrap(sg_add_edge(ptr, u, v));
+    Rcpp::traits::input_parameter< double >::type w(wSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_add_edge(ptr, u, v, w));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_remove_edge
+bool sg_remove_edge(SEXP ptr, int u, int v);
+RcppExport SEXP _edgestream_sg_remove_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    Rcpp::traits::input_parameter< int >::type v(vSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_remove_edge(ptr, u, v));
     return rcpp_result_gen;
 END_RCPP
 }
 // sg_same_component
 bool sg_same_component(SEXP ptr, int u, int v);
-RcppExport SEXP _streamgraph_sg_same_component(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
+RcppExport SEXP _edgestream_sg_same_component(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -50,7 +65,7 @@ END_RCPP
 }
 // sg_component_id
 int sg_component_id(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_component_id(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_component_id(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -62,7 +77,7 @@ END_RCPP
 }
 // sg_n_components
 int sg_n_components(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_n_components(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_n_components(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -73,7 +88,7 @@ END_RCPP
 }
 // sg_component_size
 int sg_component_size(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_component_size(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_component_size(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -85,7 +100,7 @@ END_RCPP
 }
 // sg_degree
 int sg_degree(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_degree(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_degree(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -97,7 +112,7 @@ END_RCPP
 }
 // sg_in_degree
 int sg_in_degree(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_in_degree(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_in_degree(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -107,9 +122,21 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_strength
+double sg_strength(SEXP ptr, int u);
+RcppExport SEXP _edgestream_sg_strength(SEXP ptrSEXP, SEXP uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_strength(ptr, u));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_has_edge
 bool sg_has_edge(SEXP ptr, int u, int v);
-RcppExport SEXP _streamgraph_sg_has_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
+RcppExport SEXP _edgestream_sg_has_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -120,9 +147,33 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_edge_weight
+double sg_edge_weight(SEXP ptr, int u, int v);
+RcppExport SEXP _edgestream_sg_edge_weight(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    Rcpp::traits::input_parameter< int >::type v(vSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_edge_weight(ptr, u, v));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_total_weight
+double sg_total_weight(SEXP ptr);
+RcppExport SEXP _edgestream_sg_total_weight(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_total_weight(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_neighbours
 Rcpp::IntegerVector sg_neighbours(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_neighbours(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_neighbours(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -134,7 +185,7 @@ END_RCPP
 }
 // sg_in_neighbours
 Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_in_neighbours(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_in_neighbours(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -146,7 +197,7 @@ END_RCPP
 }
 // sg_n_nodes
 int sg_n_nodes(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_n_nodes(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_n_nodes(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -157,7 +208,7 @@ END_RCPP
 }
 // sg_n_edges
 double sg_n_edges(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_n_edges(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_n_edges(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -166,9 +217,31 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_is_directed
+bool sg_is_directed(SEXP ptr);
+RcppExport SEXP _edgestream_sg_is_directed(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_is_directed(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_is_weighted
+bool sg_is_weighted(SEXP ptr);
+RcppExport SEXP _edgestream_sg_is_weighted(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_is_weighted(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_triangle_count
 double sg_triangle_count(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_triangle_count(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_triangle_count(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -179,7 +252,7 @@ END_RCPP
 }
 // sg_local_triangles
 int sg_local_triangles(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_local_triangles(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_local_triangles(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -191,7 +264,7 @@ END_RCPP
 }
 // sg_all_local_triangles
 Rcpp::IntegerVector sg_all_local_triangles(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_all_local_triangles(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_all_local_triangles(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -200,23 +273,47 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_clustering_coefficient
+double sg_clustering_coefficient(SEXP ptr, int u);
+RcppExport SEXP _edgestream_sg_clustering_coefficient(SEXP ptrSEXP, SEXP uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_clustering_coefficient(ptr, u));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_avg_clustering
+double sg_avg_clustering(SEXP ptr);
+RcppExport SEXP _edgestream_sg_avg_clustering(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_avg_clustering(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_add_edges
-double sg_add_edges(SEXP ptr, Rcpp::IntegerVector us, Rcpp::IntegerVector vs, int n_threads);
-RcppExport SEXP _streamgraph_sg_add_edges(SEXP ptrSEXP, SEXP usSEXP, SEXP vsSEXP, SEXP n_threadsSEXP) {
+double sg_add_edges(SEXP ptr, Rcpp::IntegerVector us, Rcpp::IntegerVector vs, Rcpp::Nullable<Rcpp::NumericVector> ws, int n_threads);
+RcppExport SEXP _edgestream_sg_add_edges(SEXP ptrSEXP, SEXP usSEXP, SEXP vsSEXP, SEXP wsSEXP, SEXP n_threadsSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type us(usSEXP);
     Rcpp::traits::input_parameter< Rcpp::IntegerVector >::type vs(vsSEXP);
+    Rcpp::traits::input_parameter< Rcpp::Nullable<Rcpp::NumericVector> >::type ws(wsSEXP);
     Rcpp::traits::input_parameter< int >::type n_threads(n_threadsSEXP);
-    rcpp_result_gen = Rcpp::wrap(sg_add_edges(ptr, us, vs, n_threads));
+    rcpp_result_gen = Rcpp::wrap(sg_add_edges(ptr, us, vs, ws, n_threads));
     return rcpp_result_gen;
 END_RCPP
 }
 // sg_density
 double sg_density(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_density(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_density(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -227,7 +324,7 @@ END_RCPP
 }
 // sg_avg_degree
 double sg_avg_degree(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_avg_degree(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_avg_degree(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -238,7 +335,7 @@ END_RCPP
 }
 // sg_max_degree
 int sg_max_degree(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_max_degree(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_max_degree(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -249,7 +346,7 @@ END_RCPP
 }
 // sg_degree_histogram
 Rcpp::NumericVector sg_degree_histogram(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_degree_histogram(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_degree_histogram(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -260,7 +357,7 @@ END_RCPP
 }
 // sg_component_nodes
 Rcpp::IntegerVector sg_component_nodes(SEXP ptr, int u);
-RcppExport SEXP _streamgraph_sg_component_nodes(SEXP ptrSEXP, SEXP uSEXP) {
+RcppExport SEXP _edgestream_sg_component_nodes(SEXP ptrSEXP, SEXP uSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -272,7 +369,7 @@ END_RCPP
 }
 // sg_component_ids
 Rcpp::IntegerVector sg_component_ids(SEXP ptr);
-RcppExport SEXP _streamgraph_sg_component_ids(SEXP ptrSEXP) {
+RcppExport SEXP _edgestream_sg_component_ids(SEXP ptrSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -281,9 +378,56 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_strong_component_ids
+Rcpp::IntegerVector sg_strong_component_ids(SEXP ptr);
+RcppExport SEXP _edgestream_sg_strong_component_ids(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_strong_component_ids(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_n_strong_components
+int sg_n_strong_components(SEXP ptr);
+RcppExport SEXP _edgestream_sg_n_strong_components(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_n_strong_components(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_edge_list
+Rcpp::List sg_edge_list(SEXP ptr);
+RcppExport SEXP _edgestream_sg_edge_list(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_edge_list(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_pagerank
+Rcpp::NumericVector sg_pagerank(SEXP ptr, double damping, double tol, int max_iter);
+RcppExport SEXP _edgestream_sg_pagerank(SEXP ptrSEXP, SEXP dampingSEXP, SEXP tolSEXP, SEXP max_iterSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< double >::type damping(dampingSEXP);
+    Rcpp::traits::input_parameter< double >::type tol(tolSEXP);
+    Rcpp::traits::input_parameter< int >::type max_iter(max_iterSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_pagerank(ptr, damping, tol, max_iter));
+    return rcpp_result_gen;
+END_RCPP
+}
 // sg_betweenness_approx
 Rcpp::NumericVector sg_betweenness_approx(SEXP ptr, int k, int n_threads, double seed, bool normalise);
-RcppExport SEXP _streamgraph_sg_betweenness_approx(SEXP ptrSEXP, SEXP kSEXP, SEXP n_threadsSEXP, SEXP seedSEXP, SEXP normaliseSEXP) {
+RcppExport SEXP _edgestream_sg_betweenness_approx(SEXP ptrSEXP, SEXP kSEXP, SEXP n_threadsSEXP, SEXP seedSEXP, SEXP normaliseSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -298,7 +442,7 @@ END_RCPP
 }
 // sg_save
 void sg_save(SEXP ptr, std::string path);
-RcppExport SEXP _streamgraph_sg_save(SEXP ptrSEXP, SEXP pathSEXP) {
+RcppExport SEXP _edgestream_sg_save(SEXP ptrSEXP, SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
@@ -309,7 +453,7 @@ END_RCPP
 }
 // sg_load
 SEXP sg_load(std::string path);
-RcppExport SEXP _streamgraph_sg_load(SEXP pathSEXP) {
+RcppExport SEXP _edgestream_sg_load(SEXP pathSEXP) {
 BEGIN_RCPP
     Rcpp::RObject rcpp_result_gen;
     Rcpp::RNGScope rcpp_rngScope_gen;
@@ -320,36 +464,48 @@ END_RCPP
 }
 
 static const R_CallMethodDef CallEntries[] = {
-    {"_streamgraph_sg_create", (DL_FUNC) &_streamgraph_sg_create, 2},
-    {"_streamgraph_sg_add_edge", (DL_FUNC) &_streamgraph_sg_add_edge, 3},
-    {"_streamgraph_sg_same_component", (DL_FUNC) &_streamgraph_sg_same_component, 3},
-    {"_streamgraph_sg_component_id", (DL_FUNC) &_streamgraph_sg_component_id, 2},
-    {"_streamgraph_sg_n_components", (DL_FUNC) &_streamgraph_sg_n_components, 1},
-    {"_streamgraph_sg_component_size", (DL_FUNC) &_streamgraph_sg_component_size, 2},
-    {"_streamgraph_sg_degree", (DL_FUNC) &_streamgraph_sg_degree, 2},
-    {"_streamgraph_sg_in_degree", (DL_FUNC) &_streamgraph_sg_in_degree, 2},
-    {"_streamgraph_sg_has_edge", (DL_FUNC) &_streamgraph_sg_has_edge, 3},
-    {"_streamgraph_sg_neighbours", (DL_FUNC) &_streamgraph_sg_neighbours, 2},
-    {"_streamgraph_sg_in_neighbours", (DL_FUNC) &_streamgraph_sg_in_neighbours, 2},
-    {"_streamgraph_sg_n_nodes", (DL_FUNC) &_streamgraph_sg_n_nodes, 1},
-    {"_streamgraph_sg_n_edges", (DL_FUNC) &_streamgraph_sg_n_edges, 1},
-    {"_streamgraph_sg_triangle_count", (DL_FUNC) &_streamgraph_sg_triangle_count, 1},
-    {"_streamgraph_sg_local_triangles", (DL_FUNC) &_streamgraph_sg_local_triangles, 2},
-    {"_streamgraph_sg_all_local_triangles", (DL_FUNC) &_streamgraph_sg_all_local_triangles, 1},
-    {"_streamgraph_sg_add_edges", (DL_FUNC) &_streamgraph_sg_add_edges, 4},
-    {"_streamgraph_sg_density", (DL_FUNC) &_streamgraph_sg_density, 1},
-    {"_streamgraph_sg_avg_degree", (DL_FUNC) &_streamgraph_sg_avg_degree, 1},
-    {"_streamgraph_sg_max_degree", (DL_FUNC) &_streamgraph_sg_max_degree, 1},
-    {"_streamgraph_sg_degree_histogram", (DL_FUNC) &_streamgraph_sg_degree_histogram, 1},
-    {"_streamgraph_sg_component_nodes", (DL_FUNC) &_streamgraph_sg_component_nodes, 2},
-    {"_streamgraph_sg_component_ids", (DL_FUNC) &_streamgraph_sg_component_ids, 1},
-    {"_streamgraph_sg_betweenness_approx", (DL_FUNC) &_streamgraph_sg_betweenness_approx, 5},
-    {"_streamgraph_sg_save", (DL_FUNC) &_streamgraph_sg_save, 2},
-    {"_streamgraph_sg_load", (DL_FUNC) &_streamgraph_sg_load, 1},
+    {"_edgestream_sg_create", (DL_FUNC) &_edgestream_sg_create, 3},
+    {"_edgestream_sg_add_edge", (DL_FUNC) &_edgestream_sg_add_edge, 4},
+    {"_edgestream_sg_remove_edge", (DL_FUNC) &_edgestream_sg_remove_edge, 3},
+    {"_edgestream_sg_same_component", (DL_FUNC) &_edgestream_sg_same_component, 3},
+    {"_edgestream_sg_component_id", (DL_FUNC) &_edgestream_sg_component_id, 2},
+    {"_edgestream_sg_n_components", (DL_FUNC) &_edgestream_sg_n_components, 1},
+    {"_edgestream_sg_component_size", (DL_FUNC) &_edgestream_sg_component_size, 2},
+    {"_edgestream_sg_degree", (DL_FUNC) &_edgestream_sg_degree, 2},
+    {"_edgestream_sg_in_degree", (DL_FUNC) &_edgestream_sg_in_degree, 2},
+    {"_edgestream_sg_strength", (DL_FUNC) &_edgestream_sg_strength, 2},
+    {"_edgestream_sg_has_edge", (DL_FUNC) &_edgestream_sg_has_edge, 3},
+    {"_edgestream_sg_edge_weight", (DL_FUNC) &_edgestream_sg_edge_weight, 3},
+    {"_edgestream_sg_total_weight", (DL_FUNC) &_edgestream_sg_total_weight, 1},
+    {"_edgestream_sg_neighbours", (DL_FUNC) &_edgestream_sg_neighbours, 2},
+    {"_edgestream_sg_in_neighbours", (DL_FUNC) &_edgestream_sg_in_neighbours, 2},
+    {"_edgestream_sg_n_nodes", (DL_FUNC) &_edgestream_sg_n_nodes, 1},
+    {"_edgestream_sg_n_edges", (DL_FUNC) &_edgestream_sg_n_edges, 1},
+    {"_edgestream_sg_is_directed", (DL_FUNC) &_edgestream_sg_is_directed, 1},
+    {"_edgestream_sg_is_weighted", (DL_FUNC) &_edgestream_sg_is_weighted, 1},
+    {"_edgestream_sg_triangle_count", (DL_FUNC) &_edgestream_sg_triangle_count, 1},
+    {"_edgestream_sg_local_triangles", (DL_FUNC) &_edgestream_sg_local_triangles, 2},
+    {"_edgestream_sg_all_local_triangles", (DL_FUNC) &_edgestream_sg_all_local_triangles, 1},
+    {"_edgestream_sg_clustering_coefficient", (DL_FUNC) &_edgestream_sg_clustering_coefficient, 2},
+    {"_edgestream_sg_avg_clustering", (DL_FUNC) &_edgestream_sg_avg_clustering, 1},
+    {"_edgestream_sg_add_edges", (DL_FUNC) &_edgestream_sg_add_edges, 5},
+    {"_edgestream_sg_density", (DL_FUNC) &_edgestream_sg_density, 1},
+    {"_edgestream_sg_avg_degree", (DL_FUNC) &_edgestream_sg_avg_degree, 1},
+    {"_edgestream_sg_max_degree", (DL_FUNC) &_edgestream_sg_max_degree, 1},
+    {"_edgestream_sg_degree_histogram", (DL_FUNC) &_edgestream_sg_degree_histogram, 1},
+    {"_edgestream_sg_component_nodes", (DL_FUNC) &_edgestream_sg_component_nodes, 2},
+    {"_edgestream_sg_component_ids", (DL_FUNC) &_edgestream_sg_component_ids, 1},
+    {"_edgestream_sg_strong_component_ids", (DL_FUNC) &_edgestream_sg_strong_component_ids, 1},
+    {"_edgestream_sg_n_strong_components", (DL_FUNC) &_edgestream_sg_n_strong_components, 1},
+    {"_edgestream_sg_edge_list", (DL_FUNC) &_edgestream_sg_edge_list, 1},
+    {"_edgestream_sg_pagerank", (DL_FUNC) &_edgestream_sg_pagerank, 4},
+    {"_edgestream_sg_betweenness_approx", (DL_FUNC) &_edgestream_sg_betweenness_approx, 5},
+    {"_edgestream_sg_save", (DL_FUNC) &_edgestream_sg_save, 2},
+    {"_edgestream_sg_load", (DL_FUNC) &_edgestream_sg_load, 1},
     {NULL, NULL, 0}
 };
 
-RcppExport void R_init_streamgraph(DllInfo *dll) {
+RcppExport void R_init_edgestream(DllInfo *dll) {
     R_registerRoutines(dll, NULL, CallEntries, NULL, NULL);
     R_useDynamicSymbols(dll, FALSE);
 }

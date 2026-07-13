@@ -8,8 +8,8 @@ requires = [
 build-backend = "setuptools.build_meta"
 
 [project]
-name = "streamgraph"
-description = "streamgraph: streaming (dynamic) graph analytics"
+name = "edgestream"
+description = "edgestream: streaming (dynamic) graph analytics"
 readme = "README.md"
 license = {text = "MIT"}
 authors = [{name = "bagol1000", email = "01199218@pw.edu.pl"}]
@@ -26,21 +26,22 @@ classifiers = [
 ]
 
 [project.urls]
-Homepage = "https://github.com/bagol1000/streamgraph"
-Issues = "https://github.com/bagol1000/streamgraph/issues"
+Homepage = "https://github.com/bagol1000/edgestream"
+Issues = "https://github.com/bagol1000/edgestream/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=7"]
+dev = ["pytest>=7", "hypothesis", "networkx", "scipy"]
+interop = ["networkx", "scipy"]
 
 [tool.setuptools]
-packages = ["streamgraph"]
+packages = ["edgestream"]
 
 [tool.setuptools.package-data]
-streamgraph = ["py.typed", "*.pyi"]
+edgestream = ["py.typed", "*.pyi"]
 
 [tool.setuptools.dynamic]
-# read statically from streamgraph/__init__.py (no import of the C extension)
-version = {attr = "streamgraph.__version__"}
+# read statically from edgestream/__init__.py (no import of the C extension)
+version = {attr = "edgestream.__version__"}
 
 [tool.pytest.ini_options]
 testpaths = ["tests"]

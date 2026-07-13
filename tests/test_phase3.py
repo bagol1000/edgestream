@@ -2,7 +2,7 @@
 
 import numpy as np
 
-import streamgraph as sg
+import edgestream as sg
 
 
 def test_batch_dedup():
@@ -81,8 +81,8 @@ def test_serialisation(tmp_path):
     G = sg.StreamGraph()
     for i in range(50):
         G.add_edge(i % 10, (i * 7 + 3) % 10)
-    G.save(str(tmp_path / "G.sgph"))
-    G2 = sg.StreamGraph.load(str(tmp_path / "G.sgph"))
+    G.save(str(tmp_path / "G.esg"))
+    G2 = sg.StreamGraph.load(str(tmp_path / "G.esg"))
     assert G.n_edges() == G2.n_edges()
     assert G.triangle_count() == G2.triangle_count()
     assert G.n_components() == G2.n_components()
@@ -94,8 +94,8 @@ def test_serialisation_large(tmp_path):
     random.seed(1)
     for _ in range(5000):
         G.add_edge(random.randint(0, 999), random.randint(0, 999))
-    G.save(str(tmp_path / "large.sgph"))
-    G2 = sg.StreamGraph.load(str(tmp_path / "large.sgph"))
+    G.save(str(tmp_path / "large.esg"))
+    G2 = sg.StreamGraph.load(str(tmp_path / "large.esg"))
     assert G.n_edges() == G2.n_edges()
     assert G.triangle_count() == G2.triangle_count()
     for i in range(1000):

@@ -1,6 +1,6 @@
 """Phase 2 tests: streaming triangle counting."""
 
-import streamgraph as sg
+import edgestream as sg
 
 
 def test_no_triangle_open_path():

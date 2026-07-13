@@ -55,7 +55,7 @@ jobs:
       - uses: actions/upload-artifact@v4
         with:
           name: r-tarball
-          path: streamgraph_*.tar.gz
+          path: edgestream_*.tar.gz
 
   publish-pypi:
     needs: [build-wheels, build-sdist]

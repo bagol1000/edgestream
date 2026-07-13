@@ -1,24 +1,42 @@
 //Approximate betweenness via random (s,t) pair sampling.
-//Per pair: BFS from s (out-edges when directed) gives dist and sigma (shortest-path counts
-//from s); back-propagation from t over predecessors (in-edges when directed) gives g[v]
-//(shortest paths v->t); a node's share of s-t paths is sigma[v]*g[v]/sigma[t].
+//Per pair: SSSP from s (BFS unweighted, Dijkstra weighted; out-edges when directed)
+//gives dist and sigma (shortest-path counts from s); back-propagation from t over
+//predecessors (in-edges when directed) gives g[v] (shortest paths v->t); a node's
+//share of s-t paths is sigma[v]*g[v]/sigma[t].
 //Undirected graphs sum over unordered pairs, directed over ordered pairs. The summed
 //dependency is scaled by total_pairs/k; with normalise=true it is then divided by the max.
 //When k >= total_pairs every pair is enumerated by index (exact, nothing materialised).
 //Pairs are independent, so OpenMP parallel with per-thread scratch and a private accumulator.
 #include <algorithm>
 #include <cstdint>
+#include <functional>
+#include <limits>
+#include <queue>
 #include <random>
 #include <utility>
 #include <vector>
 
-#include "streamgraph.h"
+#include "edgestream.h"
 
 #ifdef _OPENMP
 #include <omp.h>
 #endif
 
-namespace streamgraph {
+namespace edgestream {
+
+namespace {
+
+constexpr double DIST_EPS = 1e-9;   //tolerance for "equal length" weighted paths
+constexpr double INF = std::numeric_limits<double>::infinity();
+
+//weight of the directed/undirected edge (u, v), read from u's aligned weight list
+inline double weight_of(const StreamGraph& G, uint32_t u, uint32_t v) {
+    const auto& nb = G.adj[u].neighbours;
+    auto pos = std::lower_bound(nb.begin(), nb.end(), v);
+    return G.w_adj[u][static_cast<size_t>(pos - nb.begin())];
+}
+
+}
 
 std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int n_threads, uint64_t seed, bool normalise) {
     const uint32_t N = G.n_nodes_actual;
@@ -75,12 +93,17 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
 #endif
         std::vector<double>& acc = tcounts[tid];
 
-        std::vector<int32_t> dist(N, -1);
+        std::vector<double> dist(N, INF);    //shortest distance from s (hops or weight)
         std::vector<double> sigma(N, 0.0);   //shortest paths from s
         std::vector<double> g(N, 0.0);       //shortest paths to t
-        std::vector<uint32_t> queue(N);
-        std::vector<uint32_t> order;
+        std::vector<char> settled(N, 0);     //Dijkstra: guards against double-settling
+        std::vector<uint32_t> queue_buf(N);  //BFS ring buffer (unweighted only)
+        std::vector<uint32_t> order;         //settle order, non-decreasing dist
         order.reserve(N);
+        //Dijkstra frontier (weighted only), min-heap of (dist, node) with lazy deletion
+        std::priority_queue<std::pair<double, uint32_t>,
+                            std::vector<std::pair<double, uint32_t>>,
+                            std::greater<std::pair<double, uint32_t>>> heap;
 
 #ifdef _OPENMP
 //round-robin keeps threads balanced when the undirected exact path skips the
@@ -102,39 +125,75 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
                 t = pairs[p].second;
             }
 
-            //BFS from s (follows out-edges when directed)
-            size_t head = 0, tail = 0;
-            dist[s] = 0;
-            sigma[s] = 1.0;
-            queue[tail++] = s;
             order.clear();
-            while (head < tail) {
-                uint32_t u = queue[head++];
-                order.push_back(u);
-                int32_t du = dist[u];
-                for (uint32_t w : G.adj[u].neighbours) {
-                    if (dist[w] < 0) {
-                        dist[w] = du + 1;
-                        queue[tail++] = w;
+            if (!G.weighted) {
+                //BFS from s (follows out-edges when directed)
+                size_t head = 0, tail = 0;
+                dist[s] = 0.0;
+                sigma[s] = 1.0;
+                queue_buf[tail++] = s;
+                while (head < tail) {
+                    uint32_t u = queue_buf[head++];
+                    order.push_back(u);
+                    double du = dist[u];
+                    for (uint32_t w : G.adj[u].neighbours) {
+                        if (dist[w] == INF) {
+                            dist[w] = du + 1.0;
+                            queue_buf[tail++] = w;
+                        }
+                        if (dist[w] == du + 1.0) sigma[w] += sigma[u];
                     }
-                    if (dist[w] == du + 1) sigma[w] += sigma[u];
+                }
+            } else {
+                //Dijkstra from s; sigma accumulates on relaxation, each edge seen once
+                dist[s] = 0.0;
+                sigma[s] = 1.0;
+                heap.push({0.0, s});
+                while (!heap.empty()) {
+                    auto [du, u] = heap.top();
+                    heap.pop();
+                    if (settled[u] || du > dist[u] + DIST_EPS) continue;   //stale entry
+                    settled[u] = 1;
+                    order.push_back(u);
+                    const auto& nb = G.adj[u].neighbours;
+                    for (size_t i = 0; i < nb.size(); ++i) {
+                        uint32_t w = nb[i];
+                        double nd = dist[u] + G.w_adj[u][i];
+                        if (nd < dist[w] - DIST_EPS) {
+                            dist[w] = nd;
+                            sigma[w] = sigma[u];
+                            heap.push({nd, w});
+                        } else if (nd <= dist[w] + DIST_EPS) {
+                            sigma[w] += sigma[u];
+                        }
+                    }
                 }
             }
 
             //back-propagate from t along the shortest-path DAG (only if reachable)
-            if (dist[t] >= 0) {
+            if (dist[t] != INF) {
                 g[t] = 1.0;
                 //order is non-decreasing distance; walk it backwards
                 for (size_t idx = order.size(); idx-- > 0;) {
                     uint32_t w = order[idx];
                     double gw = g[w];
                     if (gw == 0.0) continue;
-                    int32_t dw = dist[w];
+                    double dw = dist[w];
                     //predecessors of w reach it via an edge v->w: in-edges when directed
                     const std::vector<uint32_t>& preds =
                         G.directed ? G.in_adj[w] : G.adj[w].neighbours;
-                    for (uint32_t v : preds)
-                        if (dist[v] == dw - 1) g[v] += gw;   //v is closer to s
+                    for (uint32_t v : preds) {
+                        if (dist[v] == INF) continue;
+                        bool on_sp;
+                        if (!G.weighted) {
+                            on_sp = (dist[v] == dw - 1.0);
+                        } else {
+                            double wvw = weight_of(G, v, w);
+                            on_sp = (dist[v] + wvw <= dw + DIST_EPS) &&
+                                    (dist[v] + wvw >= dw - DIST_EPS);
+                        }
+                        if (on_sp) g[v] += gw;   //v is closer to s
+                    }
                 }
                 double sigma_t = sigma[t];
                 for (uint32_t v : order) {
@@ -143,11 +202,12 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
                 }
             }
 
-            //reset only the nodes this BFS touched
+            //reset only the nodes this SSSP touched
             for (uint32_t u : order) {
-                dist[u] = -1;
+                dist[u] = INF;
                 sigma[u] = 0.0;
                 g[u] = 0.0;
+                settled[u] = 0;
             }
         }
     }

@@ -1,0 +1,66 @@
+url: https://bagol1000.github.io/edgestream/
+template:
+  bootstrap: 5
+
+reference:
+- title: Graph construction and mutation
+  contents:
+  - stream_graph
+  - add_edge
+  - add_edges
+  - remove_edge
+  - save_graph
+  - load_graph
+- title: Components
+  contents:
+  - same_component
+  - component_id
+  - n_components
+  - component_size
+  - component_nodes
+  - component_ids
+  - strong_component_ids
+  - n_strong_components
+- title: Degrees, neighbourhoods and weights
+  contents:
+  - degree
+  - in_degree
+  - strength
+  - neighbours
+  - in_neighbours
+  - has_edge
+  - edge_weight
+  - total_weight
+  - degree_histogram
+  - max_degree
+  - avg_degree
+  - n_nodes
+  - n_edges
+  - density
+  - edge_list
+- title: Triangles and clustering
+  contents:
+  - triangle_count
+  - local_triangles
+  - all_local_triangles
+  - clustering_coefficient
+  - avg_clustering
+- title: Centrality
+  contents:
+  - betweenness_approx
+  - pagerank
+- title: Interop
+  contents:
+  - as_igraph
+  - from_igraph
+- title: Node index
+  contents:
+  - node_index
+  - node_id
+  - get_id
+  - get_key
+  - has_key
+  - n_indexed
+- title: Package
+  contents:
+  - edgestream-package

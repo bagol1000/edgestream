@@ -1,28 +1,34 @@
-# streamgraph
+# edgestream
 
-[![PyPI version](https://img.shields.io/pypi/v/streamgraph.svg)](https://pypi.org/project/streamgraph/)
-[![CI](https://github.com/bagol1000/streamgraph/actions/workflows/ci.yml/badge.svg)](https://github.com/bagol1000/streamgraph/actions/workflows/ci.yml)
+[![PyPI version](https://img.shields.io/pypi/v/edgestream.svg)](https://pypi.org/project/edgestream/)
+[![CI](https://github.com/bagol1000/edgestream/actions/workflows/ci.yml/badge.svg)](https://github.com/bagol1000/edgestream/actions/workflows/ci.yml)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 
 Streaming (dynamic) graph analytics with Python and R bindings backed by a
-C++17 core — maintain connected components, triangle counts, degrees and basic
-centrality incrementally as edges arrive.
+C++17 core — maintain connected components, triangle counts, clustering,
+degrees and edge weights incrementally as edges arrive (and leave), and
+compute centrality on demand.
 
 Most Python/R graph tools (NetworkX, igraph) assume a static graph: load
-everything, run an algorithm, done. `streamgraph` instead keeps its metrics up
-to date on every edge, so you can query a graph that never stops growing.
+everything, run an algorithm, done. `edgestream` instead keeps its metrics up
+to date on **every edge**, so you can query a graph that never stops growing.
 
 ## Features
 
 - Incremental connected components via Union-Find — `O(alpha(n))` per edge
-- Streaming triangle counting — global and per-node, `O(1)` to query
-- Degree tracking, degree histogram and `O(1)` max degree — `O(1)` per edge
+- Streaming triangle counting and clustering coefficients — `O(1)` to query
+- **Edge removal** — triangles, degrees and weights stay exact; components
+  rebuild lazily on the next query
+- **Edge weights** — `strength()`, weighted PageRank, Dijkstra-based betweenness
+- Degree tracking, degree histogram and `O(1)` max degree
 - Neighbourhood queries — sorted (in-)neighbours, `O(1)` edge existence
-- Approximate betweenness centrality — random pair sampling, OpenMP-parallel,
-  direction-aware, normalised or raw scores
-- Batch edge ingestion with OpenMP
-- Binary save / load
+- On-demand centrality: approximate betweenness (sampled, OpenMP-parallel,
+  direction- and weight-aware), PageRank, strongly connected components (Tarjan)
+- Batch edge ingestion with OpenMP; binary save / load (`.esg`)
+- Interop: NetworkX / scipy.sparse (Python), igraph (R), plain edge lists
 - `NodeIndex` helper to map arbitrary keys (strings, etc.) to node IDs
+- Verified: property-based tests against NetworkX, core fuzzed under
+  ASan/UBSan in CI
 
 Node IDs are non-negative integers, **0-indexed in both Python and R**.
 
@@ -49,242 +55,220 @@ Requires `Rcpp` (LinkingTo) and a C++17 toolchain with OpenMP.
 
 ## Quick start — fraud-detection style
 
-A common streaming use case: watch money flow between accounts and ask, in real
-time, which accounts are now connected and how tightly clustered an account is.
+Watch money flow between accounts and ask, in real time, which accounts are
+now connected and how tightly clustered an account is.
 
 ```python
-import streamgraph as sg
+import edgestream as es
 
-G = sg.StreamGraph()
-idx = sg.NodeIndex()        # maps account names -> integer node IDs
+G = es.StreamGraph(weighted=True)
+idx = es.NodeIndex()        # maps account names -> integer node IDs
 
 transactions = [
-    ("acc_001", "acc_017"),
-    ("acc_017", "acc_999"),
-    ("acc_999", "acc_001"),   # closes a triangle 001-017-999
-    ("acc_500", "acc_777"),
+    ("acc_001", "acc_017", 250.0),
+    ("acc_017", "acc_999", 900.0),
+    ("acc_999", "acc_001", 120.0),   # closes a triangle 001-017-999
+    ("acc_500", "acc_777",  40.0),
 ]
 
-for sender, receiver in transactions:
-    G.add_edge(idx[sender], idx[receiver])
+for sender, receiver, amount in transactions:
+    G.add_edge(idx[sender], idx[receiver], amount)
 
-# Are two accounts part of the same money-flow cluster?
 G.same_component(idx["acc_001"], idx["acc_999"])   # True
-G.same_component(idx["acc_001"], idx["acc_500"])   # False
-
-# How tightly is an account clustered? (triangles it participates in)
-G.local_triangles(idx["acc_001"])                  # 1
-
-# Cluster-level stats
-G.n_components()                                    # 2
-G.component_size(idx["acc_001"])                    # 3
-G.triangle_count()                                  # 1
+G.n_components()                                   # 2
+G.triangle_count()                                 # 1
+G.clustering_coefficient(idx["acc_001"])           # 1.0
+G.strength(idx["acc_017"])                         # 1150.0 (money through 017)
 ```
 
 The same workflow in R:
 
 ```r
-library(streamgraph)
+library(edgestream)
 
-G   <- stream_graph()
+G   <- stream_graph(weighted = TRUE)
 idx <- node_index()
 
-add_edge(G, node_id(idx, "acc_001"), node_id(idx, "acc_017"))
-add_edge(G, node_id(idx, "acc_017"), node_id(idx, "acc_999"))
-add_edge(G, node_id(idx, "acc_999"), node_id(idx, "acc_001"))
+add_edge(G, node_id(idx, "acc_001"), node_id(idx, "acc_017"), w = 250)
+add_edge(G, node_id(idx, "acc_017"), node_id(idx, "acc_999"), w = 900)
+add_edge(G, node_id(idx, "acc_999"), node_id(idx, "acc_001"), w = 120)
 
 same_component(G, get_id(idx, "acc_001"), get_id(idx, "acc_999"))  # TRUE
-local_triangles(G, get_id(idx, "acc_001"))                        # 1
-triangle_count(G)                                                 # 1
+triangle_count(G)                                                  # 1
+strength(G, get_id(idx, "acc_017"))                                # 1150
 ```
 
 ## Usage
 
-All Python examples assume `import numpy as np, streamgraph as sg`. Node IDs are
-non-negative integers, 0-indexed.
+All Python examples assume `import numpy as np, edgestream as es`.
 
-### Building a graph
+### Building and mutating a graph
 
 ```python
-G = sg.StreamGraph()              # auto-growing; or StreamGraph(n_nodes=N) to pre-allocate
+G = es.StreamGraph()              # auto-growing; StreamGraph(n_nodes=N) pre-allocates
+D = es.StreamGraph(directed=True)
+W = es.StreamGraph(weighted=True) # positive weight per edge
+
 G.add_edge(0, 1)                  # True  (new edge)
 G.add_edge(0, 1)                  # False (duplicate; self-loops also return False)
+W.add_edge(0, 1, 2.5)             # duplicates keep the original weight
+G.remove_edge(0, 1)               # True if it was present
 
 # bulk ingestion from uint32 arrays (intra-batch duplicates and self-loops dropped)
 us = np.array([0, 1, 2], dtype=np.uint32)
 vs = np.array([1, 2, 0], dtype=np.uint32)
-G2 = sg.StreamGraph()
-G2.add_edges(us, vs, n_threads=4)   # -> 3 new edges added
+G.add_edges(us, vs, n_threads=4)                    # -> 3 new edges
+W.add_edges(us, vs, ws=np.array([1.0, 2.0, 3.0]))   # weighted batch
 ```
 
-Pass `directed=True` to `StreamGraph` for a directed graph.
+`remove_edge` keeps triangles, degrees and weights exact. Union-Find cannot
+split, so the next component query after a removal rebuilds it in O(n + m) —
+everything else stays incremental. Nodes stay "touched" after losing their
+edges (they become singleton components), which is what a sliding-window
+stream wants.
 
-### Directed graph semantics
-
-- `add_edge(u, v)` stores the ordered edge `u -> v`; the reverse edge is a
-  distinct edge.
-- `degree`, `neighbours`, `degree_histogram` and `max_degree` are over
-  **out**-edges; `in_degree` and `in_neighbours` cover the incoming side.
-- Components are **weakly** connected components (direction ignored).
-- Triangles are counted on the **underlying undirected graph**: direction and
-  reciprocal edges are ignored, so the count is insertion-order independent.
-- `betweenness_approx` follows edge direction and sums dependencies over
-  ordered `(s, t)` pairs.
+### Components
 
 ```python
-G = sg.StreamGraph(directed=True)
-G.add_edge(0, 2); G.add_edge(1, 2); G.add_edge(2, 3)
-
-G.degree(2), G.in_degree(2)     # (1, 2)   out-degree vs in-degree
-list(G.in_neighbours(2))        # [0, 1]
-```
-
-### Connected components
-
-```python
-G = sg.StreamGraph()
+G = es.StreamGraph()
 for u, v in [(0, 1), (1, 2), (5, 6)]:
     G.add_edge(u, v)
 
 G.n_components()          # 2   (only touched nodes count)
 G.same_component(0, 2)    # True
-G.same_component(0, 5)    # False
 G.component_id(2)         # 0   (root id of the component)
 G.component_size(0)       # 3
 G.component_nodes(0)      # array([0, 1, 2], dtype=uint32)
 G.component_ids()         # root id per touched node
 ```
 
-### Triangles
+### Triangles and clustering
 
-Maintained incrementally on every `add_edge`; queries are O(1).
+Maintained incrementally on every mutation; queries are O(1).
 
 ```python
-G = sg.StreamGraph()
+G = es.StreamGraph()
 for u, v in [(0, 1), (1, 2), (0, 2), (2, 3), (1, 3)]:
     G.add_edge(u, v)
 
-G.triangle_count()        # 2   (global, each triangle once)
-G.local_triangles(1)      # 2
-G.all_local_triangles()   # array([1, 2, 2, 1], dtype=uint32)
+G.triangle_count()             # 2   (global, each triangle once)
+G.local_triangles(1)           # 2
+G.all_local_triangles()        # array([1, 2, 2, 1], dtype=uint32)
+G.clustering_coefficient(1)    # 0.666...
+G.avg_clustering()             # mean over touched nodes
 ```
 
-### Degrees and statistics
+### Degrees, weights and statistics
 
 ```python
-G = sg.StreamGraph()
-for i in range(4):
-    G.add_edge(0, i + 1)          # a star centred on node 0
-
-G.degree(0)               # 4
-G.max_degree()            # 4   (maintained incrementally, O(1))
-G.avg_degree()            # 1.6
-G.density()               # 0.4
-G.degree_histogram()      # array([0, 4, 0, 0, 1])  histogram[d] = #nodes of degree d
-G.n_nodes(), G.n_edges()  # (5, 4)
+G.degree(0); G.in_degree(0)    # out-/in-degree (equal when undirected)
+G.max_degree()                 # O(1), maintained incrementally
+G.avg_degree(); G.density()
+G.degree_histogram()           # histogram[d] = #nodes of (out-)degree d
+W.edge_weight(0, 1)            # stored weight (1.0 on unweighted graphs)
+W.strength(0)                  # sum of (out-)edge weights
+W.total_weight()
 ```
 
-### Neighbours and edge lookup
+### Centrality on demand
 
 ```python
-G = sg.StreamGraph()
-for v in (8, 2, 5):
-    G.add_edge(1, v)
-
-G.neighbours(1)           # array([2, 5, 8], dtype=uint32)  (sorted)
-G.has_edge(1, 8)          # True
-```
-
-### Approximate betweenness
-
-```python
-G = sg.StreamGraph()
+G = es.StreamGraph()
 for i in range(4):
     G.add_edge(i, i + 1)          # path 0-1-2-3-4
 
 # k random (s,t) pairs (clamped to exact when k >= all pairs); normalised to [0, 1]
 G.betweenness_approx(k=200, n_threads=4, seed=42)
-# -> array([0.  , 0.75, 1.  , 0.75, 0.  ])   middle node highest, endpoints zero
+# -> array([0.  , 0.75, 1.  , 0.75, 0.  ])
 
-# normalise=False returns the raw betweenness estimate instead
-G.betweenness_approx(k=200, seed=42, normalise=False)
-# -> array([0., 3., 4., 3., 0.])
+G.betweenness_approx(k=200, seed=42, normalise=False)   # raw estimates
+G.pagerank(damping=0.85)                                # sums to 1
+
+D = es.StreamGraph(directed=True)
+for u, v in [(0, 1), (1, 2), (2, 0), (2, 3)]:
+    D.add_edge(u, v)
+D.strong_component_ids()      # array([0, 0, 0, 3]): cycle {0,1,2} + {3}
+D.n_strong_components()       # 2
+```
+
+Weighted graphs automatically use Dijkstra shortest paths for betweenness and
+weight-proportional rank flow for PageRank.
+
+### Directed graph semantics
+
+- `add_edge(u, v)` stores the ordered edge `u -> v`; the reverse edge is distinct.
+- `degree`, `neighbours`, `degree_histogram`, `max_degree` are over
+  **out**-edges; `in_degree` / `in_neighbours` cover the incoming side.
+- `n_components` etc. are **weakly** connected components (direction
+  ignored); use `strong_component_ids` for direction-aware components.
+- Triangles are counted on the **underlying undirected graph**, so the count
+  is insertion-order independent.
+- `betweenness_approx` follows edge direction and sums over ordered pairs.
+
+### Interop
+
+```python
+nxg = es.to_networkx(G)              # networkx Graph/DiGraph (weights preserved)
+H, idx = es.from_networkx(nxg)       # relabels arbitrary nodes via NodeIndex
+S = es.to_scipy_sparse(G)            # scipy.sparse.coo_matrix
+us, vs, ws = G.edge_list(weights=True)
+```
+
+```r
+ig <- as_igraph(G)                   # R: igraph out (weights preserved)
+G2 <- from_igraph(ig)
+edge_list(G)                         # data.frame(u, v, w)
 ```
 
 ### Serialisation
 
 ```python
-G.save("graph.sgph")
-H = sg.StreamGraph.load("graph.sgph")
-H.n_edges() == G.n_edges()        # True (edges, components and triangles restored)
+G.save("graph.esg")                  # binary EDGS v2 (weights included)
+H = es.StreamGraph.load("graph.esg")
 ```
 
 ### Mapping arbitrary keys to node IDs
 
-`NodeIndex` (pure Python) turns strings or any hashable key into contiguous IDs:
-
 ```python
-idx = sg.NodeIndex()
-G = sg.StreamGraph()
+idx = es.NodeIndex()
+G = es.StreamGraph()
 G.add_edge(idx["alice"], idx["bob"])
-G.add_edge(idx["bob"], idx["carol"])
-
 idx["alice"]              # 0   (assigned on first use, stable afterwards)
 idx.id("bob")             # 1
-idx.key(2)                # 'carol'
-"alice" in idx, idx.n_nodes()   # (True, 3)
-```
-
-### R
-
-The R API mirrors Python (also 0-indexed); pass the graph object first:
-
-```r
-library(streamgraph)
-G <- stream_graph()
-for (i in 0:4) add_edge(G, i, i + 1L)
-
-n_components(G)                       # 1
-triangle_count(G)
-betweenness_approx(G, k = 200L, seed = 42L)
-betweenness_approx(G, k = 200L, seed = 42L, normalise = FALSE)
-
-D <- stream_graph(directed = TRUE)
-add_edge(D, 0L, 2L); add_edge(D, 1L, 2L)
-in_degree(D, 2L)                      # 2
-in_neighbours(D, 2L)                  # c(0L, 1L)
-
-us <- c(0L, 1L, 2L); vs <- c(1L, 2L, 0L)
-H <- stream_graph(); add_edges(H, us, vs, n_threads = 4L)
-
-p <- tempfile(fileext = ".sgph")
-save_graph(G, p); G2 <- load_graph(p)
-
-idx <- node_index()
-add_edge(G, node_id(idx, "alice"), node_id(idx, "bob"))
+idx.key(0)                # 'alice'
 ```
 
 ## Performance
 
-See [docs/benchmarks.md](docs/benchmarks.md). Highlights (single machine):
-`add_edge` ~637 ns amortised (worst-case uniform-random), batch 1M edges in
-~0.59 s on 4 threads, approximate betweenness (k=200) over 1000 nodes / 5000
-edges in ~0.078 s.
+Streaming scenario (100k edges arriving one at a time, components + triangles
++ degree queried every 1000 edges, answers checksum-verified identical):
+
+| | edgestream | rustworkx* | igraph | NetworkX |
+|---|---|---|---|---|
+| time | **0.07 s** | 0.49 s | 1.40 s | 16.6 s |
+| ratio | 1x | 7x | 21x | 246x |
+
+\* rustworkx lacks a triangle-count API, so it answers strictly less.
+
+The gap is structural: recompute-on-query is O(checkpoints × (n + m)), while
+edgestream maintains the answers as edges arrive. Methodology, fairness notes
+and micro-benchmarks (`add_edge` ~640 ns amortised worst-case, batch 1M edges
+~0.4 s): [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Documentation
 
-- Python: numpy-style docstrings (`help(sg.StreamGraph.add_edge)`) and type
-  stubs in `streamgraph/_streamgraph.pyi`
-- R: `?add_edge`, `?betweenness_approx`, etc. (roxygen2-generated man pages)
-- [Benchmarks & methodology](docs/benchmarks.md)
+- Python: docstrings (`help(es.StreamGraph)`) and type stubs
+  (`edgestream/_edgestream.pyi`); guides in [docs/](docs/index.md)
+- R: `?add_edge` etc., plus `vignette("edgestream")`
+- [NEWS.md](NEWS.md) — changelog
 
 ## Status
 
-Edge addition only (no deletion in v1). Triangle counting, components, degrees,
-statistics, batch ingestion, serialisation and approximate betweenness are
-implemented and tested. Out of scope for v1: edge deletion, weighted edges,
-community detection, PageRank, exact incremental betweenness, GPU/distributed
-backends.
+v0.2: components, triangles, clustering, degrees, weights, edge removal,
+batch ingestion, serialisation, betweenness/PageRank/SCC on demand — all
+tested against NetworkX with property-based tests. Out of scope for now:
+automatic time windows (build them with `remove_edge`), community detection,
+exact incremental betweenness, GPU/distributed backends.
 
 ## Licence
 

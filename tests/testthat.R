@@ -1,4 +1,4 @@
 library(testthat)
-library(streamgraph)
+library(edgestream)
 
-test_check("streamgraph")
+test_check("edgestream")
