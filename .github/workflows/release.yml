@@ -16,9 +16,9 @@ jobs:
       - name: Build wheels
         uses: pypa/cibuildwheel@v2.21
         env:
-          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-*"
+          CIBW_BUILD: "cp39-* cp310-* cp311-* cp312-* cp313-*"
           CIBW_SKIP: "*-musllinux* *_i686 *-win32"
-          CIBW_TEST_REQUIRES: "pytest numpy"
+          CIBW_TEST_REQUIRES: "pytest numpy hypothesis networkx scipy"
           # Double quotes so the -k expression survives cmd.exe on Windows too
           CIBW_TEST_COMMAND: 'pytest {project}/tests -k "not benchmark" -q'
           # Apple clang needs libomp to build the OpenMP code paths
@@ -37,7 +37,13 @@ jobs:
         with:
           python-version: "3.12"
       - run: python -m pip install build
-      - run: python -m build --sdist
+      - run: python -m pip install twine
+      - run: |
+          python -m build --sdist
+          python -m twine check dist/*
+          python -m venv /tmp/sdist-test
+          /tmp/sdist-test/bin/pip install dist/*.tar.gz
+          /tmp/sdist-test/bin/python -c "import edgestream; assert edgestream.__version__ == '0.3.0'"
       - uses: actions/upload-artifact@v4
         with:
           name: sdist

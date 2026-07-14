@@ -1,5 +1,7 @@
 #include "edgestream.h"
 
+#include <cmath>
+#include <limits>
 #include <stdexcept>
 
 namespace edgestream {
@@ -10,6 +12,7 @@ StreamGraph::StreamGraph(uint32_t n_nodes_initial_, bool directed_, bool weighte
     adj.resize(cap);
     if (directed_) in_adj.resize(cap);
     if (weighted_) w_adj.resize(cap);
+    if (weighted_) strength_sum.assign(cap, 0.0);
     dsu.init(cap);
     touched.assign(cap, false);
 
@@ -37,6 +40,7 @@ void StreamGraph::expand_to(uint32_t new_max) {
     adj.resize(new_size);
     if (directed) in_adj.resize(new_size);
     if (weighted) w_adj.resize(new_size);
+    if (weighted) strength_sum.resize(new_size, 0.0);
     dsu.grow(static_cast<uint32_t>(new_size));
     touched.resize(new_size, false);
 }
@@ -66,7 +70,10 @@ void StreamGraph::insert_neighbour(uint32_t u, uint32_t v, double w) {
     auto pos = std::lower_bound(a.neighbours.begin(), a.neighbours.end(), v);
     size_t idx = static_cast<size_t>(pos - a.neighbours.begin());
     a.neighbours.insert(pos, v);
-    if (weighted) w_adj[u].insert(w_adj[u].begin() + idx, w);
+    if (weighted) {
+        w_adj[u].insert(w_adj[u].begin() + idx, w);
+        strength_sum[u] += w;
+    }
     histogram_move(a.degree, a.degree + 1);
     ++a.degree;
 }
@@ -81,7 +88,10 @@ void StreamGraph::erase_neighbour(uint32_t u, uint32_t v) {
     auto pos = std::lower_bound(a.neighbours.begin(), a.neighbours.end(), v);
     size_t idx = static_cast<size_t>(pos - a.neighbours.begin());
     a.neighbours.erase(pos);
-    if (weighted) w_adj[u].erase(w_adj[u].begin() + idx);
+    if (weighted) {
+        strength_sum[u] -= w_adj[u][idx];
+        w_adj[u].erase(w_adj[u].begin() + idx);
+    }
     histogram_move(a.degree, a.degree - 1);
     --a.degree;
 }
@@ -104,8 +114,11 @@ uint32_t StreamGraph::undirected_common_count(uint32_t u, uint32_t v) {
 
 bool StreamGraph::add_edge(uint32_t u, uint32_t v, double w) {
     if (u == v) return false;
-    if (weighted && !(w > 0.0)) {
-        throw std::invalid_argument("edgestream: edge weights must be positive");
+    if (u == std::numeric_limits<uint32_t>::max() ||
+        v == std::numeric_limits<uint32_t>::max())
+        throw std::out_of_range("edgestream: node id is too large");
+    if (weighted && (!(w > 0.0) || !std::isfinite(w))) {
+        throw std::invalid_argument("edgestream: edge weights must be finite and positive");
     }
 
     uint32_t hi = std::max(u, v);
@@ -122,6 +135,17 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v, double w) {
     // structure, so triangles must not be recounted for it.
     bool new_undirected_edge = !directed || !edge_set.contains(make_directed_key(v, u));
 
+    uint32_t cnt = 0;
+    std::vector<std::pair<uint32_t, double>> old_clustering;
+    if (new_undirected_edge) {
+        cnt = undirected_common_count(u, v);
+        old_clustering.reserve(common_buf.size() + 2);
+        old_clustering.emplace_back(u, clustering_coefficient(u));
+        old_clustering.emplace_back(v, clustering_coefficient(v));
+        for (uint32_t x : common_buf)
+            old_clustering.emplace_back(x, clustering_coefficient(x));
+    }
+
     insert_neighbour(u, v, w);
     if (directed) insert_in_neighbour(v, u);
     else insert_neighbour(v, u, w);
@@ -131,16 +155,79 @@ bool StreamGraph::add_edge(uint32_t u, uint32_t v, double w) {
     if (!comps_dirty && dsu.unite(u, v)) --n_components_touched;
 
     if (new_undirected_edge) {
-        uint32_t cnt = undirected_common_count(u, v);
         n_triangles += cnt;
         adj[u].triangle_count += cnt;
         adj[v].triangle_count += cnt;
         for (uint32_t w2 : common_buf) adj[w2].triangle_count += 1;
+        for (const auto& item : old_clustering)
+            clustering_sum += clustering_coefficient(item.first) - item.second;
     }
 
     total_weight_sum += weighted ? w : 1.0;
     ++n_edges;
     return true;
+}
+
+bool StreamGraph::add_node(uint32_t u) {
+    if (u == std::numeric_limits<uint32_t>::max())
+        throw std::out_of_range("edgestream: node id is too large");
+    if (u >= adj.size()) expand_to(u);
+    if (u + 1 > n_nodes_actual) n_nodes_actual = u + 1;
+    bool fresh = !touched[u];
+    touch(u);
+    return fresh;
+}
+
+uint64_t StreamGraph::add_nodes(uint32_t start, uint32_t count) {
+    if (count == 0) return 0;
+    uint64_t end = static_cast<uint64_t>(start) + count;
+    if (end > std::numeric_limits<uint32_t>::max())
+        throw std::out_of_range("edgestream: node id range is too large");
+    uint64_t added = 0;
+    reserve_nodes(static_cast<uint32_t>(end));
+    for (uint32_t u = start; u < static_cast<uint32_t>(end); ++u)
+        if (add_node(u)) ++added;
+    return added;
+}
+
+std::vector<uint32_t> StreamGraph::nodes() const {
+    std::vector<uint32_t> out;
+    out.reserve(n_touched);
+    for (uint32_t u = 0; u < n_nodes_actual; ++u)
+        if (touched[u]) out.push_back(u);
+    return out;
+}
+
+void StreamGraph::reserve_nodes(uint32_t n) {
+    if (n == 0) return;
+    expand_to(n - 1);
+    if (n > n_nodes_actual) n_nodes_actual = n;
+}
+
+void StreamGraph::reserve_edges(uint64_t m) {
+    if (m > static_cast<uint64_t>(std::numeric_limits<size_t>::max()))
+        throw std::length_error("edgestream: edge reservation is too large");
+    edge_set.reserve(static_cast<size_t>(m));
+}
+
+void StreamGraph::clear() {
+    for (auto& a : adj) a = AdjList{};
+    for (auto& a : in_adj) a.clear();
+    for (auto& a : w_adj) a.clear();
+    std::fill(strength_sum.begin(), strength_sum.end(), 0.0);
+    dsu.init(static_cast<uint32_t>(adj.size()));
+    edge_set.clear();
+    n_edges = 0;
+    n_triangles = 0;
+    clustering_sum = 0.0;
+    total_weight_sum = 0.0;
+    degree_histogram.assign(1, 0);
+    std::fill(touched.begin(), touched.end(), false);
+    n_touched = 0;
+    n_components_touched = 0;
+    n_nodes_actual = n_nodes_initial;
+    max_deg_ = 0;
+    comps_dirty = false;
 }
 
 bool StreamGraph::remove_edge(uint32_t u, uint32_t v) {
@@ -152,8 +239,14 @@ bool StreamGraph::remove_edge(uint32_t u, uint32_t v) {
     bool undirected_loss = !directed || !edge_set.contains(make_directed_key(v, u));
 
     // Triangles must be recounted while both adjacency entries still exist
+    std::vector<std::pair<uint32_t, double>> old_clustering;
     if (undirected_loss) {
         uint32_t cnt = undirected_common_count(u, v);
+        old_clustering.reserve(common_buf.size() + 2);
+        old_clustering.emplace_back(u, clustering_coefficient(u));
+        old_clustering.emplace_back(v, clustering_coefficient(v));
+        for (uint32_t x : common_buf)
+            old_clustering.emplace_back(x, clustering_coefficient(x));
         n_triangles -= cnt;
         adj[u].triangle_count -= cnt;
         adj[v].triangle_count -= cnt;
@@ -172,9 +265,35 @@ bool StreamGraph::remove_edge(uint32_t u, uint32_t v) {
     if (directed) erase_in_neighbour(v, u);
     else erase_neighbour(v, u);
 
+    if (undirected_loss)
+        for (const auto& item : old_clustering)
+            clustering_sum += clustering_coefficient(item.first) - item.second;
+
     --n_edges;
     // Union-Find cannot split; rebuild lazily on the next component query
     comps_dirty = true;
+    return true;
+}
+
+bool StreamGraph::update_edge_weight(uint32_t u, uint32_t v, double w) {
+    if (!weighted)
+        throw std::logic_error("edgestream: cannot update weights on an unweighted graph");
+    if (!(w > 0.0) || !std::isfinite(w))
+        throw std::invalid_argument("edgestream: edge weights must be finite and positive");
+    if (!has_edge(u, v)) return false;
+    auto& nb = adj[u].neighbours;
+    size_t i = static_cast<size_t>(std::lower_bound(nb.begin(), nb.end(), v) - nb.begin());
+    double old = w_adj[u][i];
+    double delta = w - old;
+    w_adj[u][i] = w;
+    strength_sum[u] += delta;
+    if (!directed) {
+        auto& rnb = adj[v].neighbours;
+        size_t j = static_cast<size_t>(std::lower_bound(rnb.begin(), rnb.end(), u) - rnb.begin());
+        w_adj[v][j] = w;
+        strength_sum[v] += delta;
+    }
+    total_weight_sum += delta;
     return true;
 }
 
@@ -196,7 +315,7 @@ uint32_t StreamGraph::find_component(uint32_t u) {
         throw std::out_of_range("edgestream: node has not been touched");
     }
     ensure_components();
-    return dsu.find(u);
+    return dsu.component_id(u);
 }
 
 bool StreamGraph::same_component(uint32_t u, uint32_t v) {
@@ -247,9 +366,7 @@ double StreamGraph::edge_weight(uint32_t u, uint32_t v) const {
 double StreamGraph::strength(uint32_t u) const {
     if (u >= adj.size()) return 0.0;
     if (!weighted) return static_cast<double>(adj[u].degree);
-    double s = 0.0;
-    for (double w : w_adj[u]) s += w;
-    return s;
+    return strength_sum[u];
 }
 
 double StreamGraph::total_weight() const { return total_weight_sum; }
@@ -279,10 +396,7 @@ double StreamGraph::clustering_coefficient(uint32_t u) const {
 
 double StreamGraph::avg_clustering() const {
     if (n_touched == 0) return 0.0;
-    double s = 0.0;
-    for (uint32_t i = 0; i < n_nodes_actual; ++i)
-        if (touched[i]) s += clustering_coefficient(i);
-    return s / static_cast<double>(n_touched);
+    return clustering_sum / static_cast<double>(n_touched);
 }
 
 double StreamGraph::density() const {
@@ -317,7 +431,7 @@ std::vector<uint32_t> StreamGraph::component_ids() {
     std::vector<uint32_t> out;
     out.reserve(n_touched);
     for (uint32_t i = 0; i < n_nodes_actual; ++i)
-        if (touched[i]) out.push_back(dsu.find(i));
+        if (touched[i]) out.push_back(dsu.component_id(i));
     return out;
 }
 

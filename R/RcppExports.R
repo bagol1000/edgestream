@@ -5,12 +5,40 @@
     .Call(`_edgestream_sg_create`, n_nodes, directed, weighted)
 }
 
+.sg_add_node <- function(ptr, u) {
+    .Call(`_edgestream_sg_add_node`, ptr, u)
+}
+
+.sg_add_nodes <- function(ptr, start, count) {
+    .Call(`_edgestream_sg_add_nodes`, ptr, start, count)
+}
+
+.sg_nodes <- function(ptr) {
+    .Call(`_edgestream_sg_nodes`, ptr)
+}
+
+.sg_reserve_nodes <- function(ptr, n) {
+    invisible(.Call(`_edgestream_sg_reserve_nodes`, ptr, n))
+}
+
+.sg_reserve_edges <- function(ptr, m) {
+    invisible(.Call(`_edgestream_sg_reserve_edges`, ptr, m))
+}
+
+.sg_clear <- function(ptr) {
+    invisible(.Call(`_edgestream_sg_clear`, ptr))
+}
+
 .sg_add_edge <- function(ptr, u, v, w) {
     .Call(`_edgestream_sg_add_edge`, ptr, u, v, w)
 }
 
 .sg_remove_edge <- function(ptr, u, v) {
     .Call(`_edgestream_sg_remove_edge`, ptr, u, v)
+}
+
+.sg_update_edge_weight <- function(ptr, u, v, w) {
+    .Call(`_edgestream_sg_update_edge_weight`, ptr, u, v, w)
 }
 
 .sg_same_component <- function(ptr, u, v) {
@@ -63,6 +91,10 @@
 
 .sg_n_nodes <- function(ptr) {
     .Call(`_edgestream_sg_n_nodes`, ptr)
+}
+
+.sg_n_ids <- function(ptr) {
+    .Call(`_edgestream_sg_n_ids`, ptr)
 }
 
 .sg_n_edges <- function(ptr) {
@@ -151,5 +183,9 @@
 
 .sg_load <- function(path) {
     .Call(`_edgestream_sg_load`, path)
+}
+
+.sg_copy <- function(source) {
+    .Call(`_edgestream_sg_copy`, source)
 }
 

@@ -11,6 +11,7 @@ struct DSU {
     std::vector<uint32_t> parent;
     std::vector<uint32_t> rank;
     std::vector<uint32_t> size;   //component size, valid at the root only
+    std::vector<uint32_t> min_id; //smallest node id, valid at the root only
 
     DSU() = default;
     explicit DSU(uint32_t n) { init(n); }
@@ -26,6 +27,7 @@ struct DSU {
 
     bool same(uint32_t x, uint32_t y);
     uint32_t comp_size(uint32_t x);
+    uint32_t component_id(uint32_t x);
 };
 
 }

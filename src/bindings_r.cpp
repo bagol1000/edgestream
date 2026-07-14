@@ -2,6 +2,7 @@
 #include <Rcpp.h>
 
 #include <memory>
+#include <cmath>
 #include <vector>
 
 #include "edgestream.h"
@@ -17,6 +18,9 @@ inline uint32_t as_node(int x) {
 }
 
 inline StreamGraph* deref(SEXP ptr) {
+    if (TYPEOF(ptr) != EXTPTRSXP ||
+        R_ExternalPtrTag(ptr) != Rf_install("edgestream_StreamGraph"))
+        Rcpp::stop("invalid StreamGraph object");
     StreamGraphPtr p(ptr);
     if (!p) Rcpp::stop("invalid (null) StreamGraph pointer");
     return p.get();
@@ -35,14 +39,48 @@ SEXP sg_create(int n_nodes, bool directed, bool weighted) {
     if (n_nodes < 0) Rcpp::stop("n_nodes must be non-negative");
     StreamGraph* g = new StreamGraph(static_cast<uint32_t>(n_nodes), directed, weighted);
     StreamGraphPtr ptr(g, true);   //XPtr finaliser deletes on GC
+    R_SetExternalPtrTag(ptr, Rf_install("edgestream_StreamGraph"));
     return ptr;
 }
+
+// [[Rcpp::export(name = ".sg_add_node")]]
+bool sg_add_node(SEXP ptr, int u) { return deref(ptr)->add_node(as_node(u)); }
+
+// [[Rcpp::export(name = ".sg_add_nodes")]]
+double sg_add_nodes(SEXP ptr, int start, int count) {
+    if (count < 0) Rcpp::stop("count must be non-negative");
+    return static_cast<double>(deref(ptr)->add_nodes(as_node(start), static_cast<uint32_t>(count)));
+}
+
+// [[Rcpp::export(name = ".sg_nodes")]]
+Rcpp::IntegerVector sg_nodes(SEXP ptr) { return to_int_vector(deref(ptr)->nodes()); }
+
+// [[Rcpp::export(name = ".sg_reserve_nodes")]]
+void sg_reserve_nodes(SEXP ptr, int n) {
+    if (n < 0) Rcpp::stop("n must be non-negative");
+    deref(ptr)->reserve_nodes(static_cast<uint32_t>(n));
+}
+
+// [[Rcpp::export(name = ".sg_reserve_edges")]]
+void sg_reserve_edges(SEXP ptr, double m) {
+    if (!std::isfinite(m) || m < 0 || std::floor(m) != m)
+        Rcpp::stop("m must be a finite non-negative integer");
+    deref(ptr)->reserve_edges(static_cast<uint64_t>(m));
+}
+
+// [[Rcpp::export(name = ".sg_clear")]]
+void sg_clear(SEXP ptr) { deref(ptr)->clear(); }
 
 // [[Rcpp::export(name = ".sg_add_edge")]]
 bool sg_add_edge(SEXP ptr, int u, int v, double w) { return deref(ptr)->add_edge(as_node(u), as_node(v), w); }
 
 // [[Rcpp::export(name = ".sg_remove_edge")]]
 bool sg_remove_edge(SEXP ptr, int u, int v) { return deref(ptr)->remove_edge(as_node(u), as_node(v)); }
+
+// [[Rcpp::export(name = ".sg_update_edge_weight")]]
+bool sg_update_edge_weight(SEXP ptr, int u, int v, double w) {
+    return deref(ptr)->update_edge_weight(as_node(u), as_node(v), w);
+}
 
 // [[Rcpp::export(name = ".sg_same_component")]]
 bool sg_same_component(SEXP ptr, int u, int v) { return deref(ptr)->same_component(as_node(u), as_node(v)); }
@@ -82,6 +120,9 @@ Rcpp::IntegerVector sg_in_neighbours(SEXP ptr, int u) { return to_int_vector(der
 
 // [[Rcpp::export(name = ".sg_n_nodes")]]
 int sg_n_nodes(SEXP ptr) { return static_cast<int>(deref(ptr)->n_nodes()); }
+
+// [[Rcpp::export(name = ".sg_n_ids")]]
+double sg_n_ids(SEXP ptr) { return static_cast<double>(deref(ptr)->n_nodes_actual); }
 
 // [[Rcpp::export(name = ".sg_n_edges")]]
 double sg_n_edges(SEXP ptr) { return static_cast<double>(deref(ptr)->n_edges); }
@@ -198,5 +239,21 @@ void sg_save(SEXP ptr, std::string path) { deref(ptr)->save(path.c_str()); }
 SEXP sg_load(std::string path) {
     StreamGraph* g = StreamGraph::load(path.c_str()).release();
     StreamGraphPtr ptr(g, true);
+    R_SetExternalPtrTag(ptr, Rf_install("edgestream_StreamGraph"));
+    return ptr;
+}
+
+// [[Rcpp::export(name = ".sg_copy")]]
+SEXP sg_copy(SEXP source) {
+    StreamGraph* g = deref(source);
+    StreamGraph* out = new StreamGraph(g->n_nodes_actual, g->directed, g->weighted);
+    for (uint32_t u : g->nodes()) out->add_node(u);
+    std::vector<uint32_t> us, vs;
+    std::vector<double> ws;
+    g->edge_list(us, vs, g->weighted ? &ws : nullptr);
+    for (size_t i = 0; i < us.size(); ++i)
+        out->add_edge(us[i], vs[i], g->weighted ? ws[i] : 1.0);
+    StreamGraphPtr ptr(out, true);
+    R_SetExternalPtrTag(ptr, Rf_install("edgestream_StreamGraph"));
     return ptr;
 }

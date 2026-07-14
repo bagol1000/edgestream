@@ -8,11 +8,13 @@
 //When k >= total_pairs every pair is enumerated by index (exact, nothing materialised).
 //Pairs are independent, so OpenMP parallel with per-thread scratch and a private accumulator.
 #include <algorithm>
+#include <cmath>
 #include <cstdint>
 #include <functional>
 #include <limits>
 #include <queue>
 #include <random>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -29,6 +31,13 @@ namespace {
 constexpr double DIST_EPS = 1e-9;   //tolerance for "equal length" weighted paths
 constexpr double INF = std::numeric_limits<double>::infinity();
 
+inline bool distance_equal(double a, double b) {
+    if (a == b) return true;
+    if (!std::isfinite(a) || !std::isfinite(b)) return false;
+    const double scale = std::max({1.0, std::abs(a), std::abs(b)});
+    return std::abs(a - b) <= DIST_EPS * scale;
+}
+
 //weight of the directed/undirected edge (u, v), read from u's aligned weight list
 inline double weight_of(const StreamGraph& G, uint32_t u, uint32_t v) {
     const auto& nb = G.adj[u].neighbours;
@@ -39,6 +48,8 @@ inline double weight_of(const StreamGraph& G, uint32_t u, uint32_t v) {
 }
 
 std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int n_threads, uint64_t seed, bool normalise) {
+    if (k <= 0) throw std::invalid_argument("edgestream: k must be positive");
+    if (n_threads < 0) throw std::invalid_argument("edgestream: n_threads must be non-negative");
     const uint32_t N = G.n_nodes_actual;
 
     //touched nodes are the only valid pair endpoints
@@ -50,7 +61,7 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
     const size_t nt = nodes.size();
     if (nt == 0) return {};
     std::vector<double> bc(N, 0.0);
-    if (nt < 2 || k <= 0) return bc;
+    if (nt < 2) return bc;
 
     //directed betweenness sums over ordered pairs, undirected over unordered
     const uint64_t ordered_count = static_cast<uint64_t>(nt) * (nt - 1);
@@ -75,8 +86,6 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
 
     int nthreads = 1;
 #ifdef _OPENMP
-    int saved = omp_get_max_threads();
-    if (n_threads > 0) omp_set_num_threads(n_threads);
     nthreads = (n_threads > 0) ? n_threads : omp_get_max_threads();
 #else
     (void)n_threads;
@@ -84,7 +93,7 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
     std::vector<std::vector<double>> tcounts(nthreads, std::vector<double>(N, 0.0));
 
 #ifdef _OPENMP
-#pragma omp parallel
+#pragma omp parallel num_threads(nthreads)
 #endif
     {
         int tid = 0;
@@ -145,27 +154,36 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
                     }
                 }
             } else {
-                //Dijkstra from s; sigma accumulates on relaxation, each edge seen once
+                //Dijkstra computes distances first.  Path counts are accumulated in a
+                //second, distance-ordered pass so equal alternatives discovered in a
+                //different heap order cannot be missed.
                 dist[s] = 0.0;
-                sigma[s] = 1.0;
                 heap.push({0.0, s});
                 while (!heap.empty()) {
                     auto [du, u] = heap.top();
                     heap.pop();
-                    if (settled[u] || du > dist[u] + DIST_EPS) continue;   //stale entry
+                    if (settled[u] || (!distance_equal(du, dist[u]) && du > dist[u]))
+                        continue;   //stale entry
                     settled[u] = 1;
                     order.push_back(u);
                     const auto& nb = G.adj[u].neighbours;
                     for (size_t i = 0; i < nb.size(); ++i) {
                         uint32_t w = nb[i];
                         double nd = dist[u] + G.w_adj[u][i];
-                        if (nd < dist[w] - DIST_EPS) {
+                        if (!distance_equal(nd, dist[w]) && nd < dist[w]) {
                             dist[w] = nd;
-                            sigma[w] = sigma[u];
                             heap.push({nd, w});
-                        } else if (nd <= dist[w] + DIST_EPS) {
-                            sigma[w] += sigma[u];
                         }
+                    }
+                }
+                sigma[s] = 1.0;
+                for (uint32_t u : order) {
+                    const auto& nb = G.adj[u].neighbours;
+                    for (size_t i = 0; i < nb.size(); ++i) {
+                        uint32_t w = nb[i];
+                        if (dist[w] != INF &&
+                            distance_equal(dist[u] + G.w_adj[u][i], dist[w]))
+                            sigma[w] += sigma[u];
                     }
                 }
             }
@@ -189,8 +207,7 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
                             on_sp = (dist[v] == dw - 1.0);
                         } else {
                             double wvw = weight_of(G, v, w);
-                            on_sp = (dist[v] + wvw <= dw + DIST_EPS) &&
-                                    (dist[v] + wvw >= dw - DIST_EPS);
+                            on_sp = distance_equal(dist[v] + wvw, dw);
                         }
                         if (on_sp) g[v] += gw;   //v is closer to s
                     }
@@ -211,10 +228,6 @@ std::vector<double> BetweennessApprox::compute(const StreamGraph& G, int k, int 
             }
         }
     }
-
-#ifdef _OPENMP
-    if (n_threads > 0) omp_set_num_threads(saved);
-#endif
 
     //reduce per-thread accumulators in tid order (deterministic)
     for (int th = 0; th < nthreads; ++th) {

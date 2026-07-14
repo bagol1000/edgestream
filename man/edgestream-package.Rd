@@ -19,11 +19,11 @@ Useful links:
 
 }
 \author{
-\strong{Maintainer}: bagol1000 \email{01199218@pw.edu.pl}
+\strong{Maintainer}: bagol1000 developer \email{01199218@pw.edu.pl}
 
 Authors:
 \itemize{
-  \item bagol1000 \email{01199218@pw.edu.pl}
+  \item bagol1000 developer \email{01199218@pw.edu.pl}
 }
 
 }

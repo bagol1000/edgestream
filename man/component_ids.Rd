@@ -2,7 +2,7 @@
 % Please edit documentation in R/edgestream.R
 \name{component_ids}
 \alias{component_ids}
-\title{Component root ID for every touched node}
+\title{Canonical component ID for every touched node}
 \usage{
 component_ids(G)
 }
@@ -13,7 +13,7 @@ component_ids(G)
 Integer vector, one entry per touched node in ascending ID order.
 }
 \description{
-Component root ID for every touched node
+Canonical component ID for every touched node
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L)

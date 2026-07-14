@@ -6,6 +6,7 @@
 #include <algorithm>
 #include <cstdint>
 #include <memory>
+#include <string>
 #include <vector>
 
 #include "dsu.h"
@@ -59,11 +60,13 @@ struct StreamGraph {
     std::vector<AdjList> adj;  // indexed by node id
     std::vector<std::vector<uint32_t>> in_adj;  // sorted in-neighbours per node; directed mode only (else empty)
     std::vector<std::vector<double>> w_adj;     // weights aligned with adj[u].neighbours; weighted mode only
+    std::vector<double> strength_sum;           // maintained out-strength; weighted mode only
     DSU dsu;
     EdgeSet edge_set;
 
     uint64_t n_edges = 0;
     uint64_t n_triangles = 0;
+    double clustering_sum = 0.0;  // sum of local coefficients over touched nodes
     double total_weight_sum = 0.0;  // sum of weights over present edges
     // degree_histogram[d] = #touched nodes of (out-)degree d; sums to n_touched.
     // Nodes whose edges were all removed (and directed sinks) sit in bucket 0.
@@ -86,10 +89,18 @@ struct StreamGraph {
     // (a duplicate does not update the stored weight). w is ignored unless weighted.
     bool add_edge(uint32_t u, uint32_t v, double w = 1.0);
 
+    bool add_node(uint32_t u);
+    uint64_t add_nodes(uint32_t start, uint32_t count);
+    std::vector<uint32_t> nodes() const;
+    void reserve_nodes(uint32_t n);
+    void reserve_edges(uint64_t m);
+    void clear();
+
     // Remove an edge; returns true if it was present. O(deg) for the adjacency
     // update; the next component query after a removal rebuilds the Union-Find
     // in O(n + m). Triangles, degrees and weights update exactly.
     bool remove_edge(uint32_t u, uint32_t v);
+    bool update_edge_weight(uint32_t u, uint32_t v, double w);
 
     // Batch add (parallel dedup, serial apply); returns the number of new edges.
     // ws may be null (all weights 1); with duplicates inside the batch the first
@@ -129,7 +140,7 @@ struct StreamGraph {
     uint32_t max_degree() const;  // O(1); max out-degree when directed
 
     std::vector<uint32_t> component_nodes(uint32_t u);  // touched nodes in u's component, O(n)
-    std::vector<uint32_t> component_ids();  // root id per touched node, ascending id
+    std::vector<uint32_t> component_ids();  // canonical min id per touched node, ascending id
 
     // Edge list export: fills us/vs (and ws unless null) with every edge once
     // (undirected: u < v; directed: every stored out-edge).

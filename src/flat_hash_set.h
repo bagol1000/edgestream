@@ -26,6 +26,12 @@ public:
 
     size_t size() const { return size_; }
 
+    void reserve(size_t n) {
+        size_t cap = keys_.size();
+        while (n * 10 > cap * 7) cap <<= 1;
+        if (cap > keys_.size()) rehash(cap);
+    }
+
     void clear() {
         std::fill(keys_.begin(), keys_.end(), EMPTY);
         size_ = 0;

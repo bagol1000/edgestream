@@ -48,8 +48,9 @@ triangle_count(G)
 clustering_coefficient(G, get_id(idx, "acc_001"))
 ```
 
-Every query above is O(1) or O(alpha(n)) — nothing is recomputed from
-scratch.
+The scalar counts above are maintained O(1) reads and component lookup is
+amortised O(alpha(n)). Methods returning vectors scale with their output; the
+first component query after removals rebuilds DSU once.
 
 ## Weighted edges
 
@@ -63,6 +64,7 @@ add_edge(W, 1L, 2L, w = 1.0)
 edge_weight(W, 0L, 1L)
 strength(W, 1L)
 total_weight(W)
+update_edge_weight(W, 0L, 1L, 4.0)
 ```
 
 ## Removing edges
@@ -76,6 +78,14 @@ G2 <- stream_graph()
 add_edge(G2, 0L, 1L); add_edge(G2, 1L, 2L)
 remove_edge(G2, 1L, 2L)
 n_components(G2)   # {0,1} plus the now-isolated node 2
+```
+
+Nodes may also be created explicitly and survive save/load as isolates:
+
+```{r}
+add_node(G2, 10L)
+nodes(G2)
+snapshot <- copy_graph(G2)
 ```
 
 ## Directed graphs

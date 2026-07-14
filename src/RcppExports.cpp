@@ -23,6 +23,74 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_add_node
+bool sg_add_node(SEXP ptr, int u);
+RcppExport SEXP _edgestream_sg_add_node(SEXP ptrSEXP, SEXP uSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_add_node(ptr, u));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_add_nodes
+double sg_add_nodes(SEXP ptr, int start, int count);
+RcppExport SEXP _edgestream_sg_add_nodes(SEXP ptrSEXP, SEXP startSEXP, SEXP countSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type start(startSEXP);
+    Rcpp::traits::input_parameter< int >::type count(countSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_add_nodes(ptr, start, count));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_nodes
+Rcpp::IntegerVector sg_nodes(SEXP ptr);
+RcppExport SEXP _edgestream_sg_nodes(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_nodes(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_reserve_nodes
+void sg_reserve_nodes(SEXP ptr, int n);
+RcppExport SEXP _edgestream_sg_reserve_nodes(SEXP ptrSEXP, SEXP nSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type n(nSEXP);
+    sg_reserve_nodes(ptr, n);
+    return R_NilValue;
+END_RCPP
+}
+// sg_reserve_edges
+void sg_reserve_edges(SEXP ptr, double m);
+RcppExport SEXP _edgestream_sg_reserve_edges(SEXP ptrSEXP, SEXP mSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< double >::type m(mSEXP);
+    sg_reserve_edges(ptr, m);
+    return R_NilValue;
+END_RCPP
+}
+// sg_clear
+void sg_clear(SEXP ptr);
+RcppExport SEXP _edgestream_sg_clear(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    sg_clear(ptr);
+    return R_NilValue;
+END_RCPP
+}
 // sg_add_edge
 bool sg_add_edge(SEXP ptr, int u, int v, double w);
 RcppExport SEXP _edgestream_sg_add_edge(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP, SEXP wSEXP) {
@@ -47,6 +115,20 @@ BEGIN_RCPP
     Rcpp::traits::input_parameter< int >::type u(uSEXP);
     Rcpp::traits::input_parameter< int >::type v(vSEXP);
     rcpp_result_gen = Rcpp::wrap(sg_remove_edge(ptr, u, v));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_update_edge_weight
+bool sg_update_edge_weight(SEXP ptr, int u, int v, double w);
+RcppExport SEXP _edgestream_sg_update_edge_weight(SEXP ptrSEXP, SEXP uSEXP, SEXP vSEXP, SEXP wSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    Rcpp::traits::input_parameter< int >::type u(uSEXP);
+    Rcpp::traits::input_parameter< int >::type v(vSEXP);
+    Rcpp::traits::input_parameter< double >::type w(wSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_update_edge_weight(ptr, u, v, w));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -203,6 +285,17 @@ BEGIN_RCPP
     Rcpp::RNGScope rcpp_rngScope_gen;
     Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
     rcpp_result_gen = Rcpp::wrap(sg_n_nodes(ptr));
+    return rcpp_result_gen;
+END_RCPP
+}
+// sg_n_ids
+double sg_n_ids(SEXP ptr);
+RcppExport SEXP _edgestream_sg_n_ids(SEXP ptrSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type ptr(ptrSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_n_ids(ptr));
     return rcpp_result_gen;
 END_RCPP
 }
@@ -462,11 +555,29 @@ BEGIN_RCPP
     return rcpp_result_gen;
 END_RCPP
 }
+// sg_copy
+SEXP sg_copy(SEXP source);
+RcppExport SEXP _edgestream_sg_copy(SEXP sourceSEXP) {
+BEGIN_RCPP
+    Rcpp::RObject rcpp_result_gen;
+    Rcpp::RNGScope rcpp_rngScope_gen;
+    Rcpp::traits::input_parameter< SEXP >::type source(sourceSEXP);
+    rcpp_result_gen = Rcpp::wrap(sg_copy(source));
+    return rcpp_result_gen;
+END_RCPP
+}
 
 static const R_CallMethodDef CallEntries[] = {
     {"_edgestream_sg_create", (DL_FUNC) &_edgestream_sg_create, 3},
+    {"_edgestream_sg_add_node", (DL_FUNC) &_edgestream_sg_add_node, 2},
+    {"_edgestream_sg_add_nodes", (DL_FUNC) &_edgestream_sg_add_nodes, 3},
+    {"_edgestream_sg_nodes", (DL_FUNC) &_edgestream_sg_nodes, 1},
+    {"_edgestream_sg_reserve_nodes", (DL_FUNC) &_edgestream_sg_reserve_nodes, 2},
+    {"_edgestream_sg_reserve_edges", (DL_FUNC) &_edgestream_sg_reserve_edges, 2},
+    {"_edgestream_sg_clear", (DL_FUNC) &_edgestream_sg_clear, 1},
     {"_edgestream_sg_add_edge", (DL_FUNC) &_edgestream_sg_add_edge, 4},
     {"_edgestream_sg_remove_edge", (DL_FUNC) &_edgestream_sg_remove_edge, 3},
+    {"_edgestream_sg_update_edge_weight", (DL_FUNC) &_edgestream_sg_update_edge_weight, 4},
     {"_edgestream_sg_same_component", (DL_FUNC) &_edgestream_sg_same_component, 3},
     {"_edgestream_sg_component_id", (DL_FUNC) &_edgestream_sg_component_id, 2},
     {"_edgestream_sg_n_components", (DL_FUNC) &_edgestream_sg_n_components, 1},
@@ -480,6 +591,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_edgestream_sg_neighbours", (DL_FUNC) &_edgestream_sg_neighbours, 2},
     {"_edgestream_sg_in_neighbours", (DL_FUNC) &_edgestream_sg_in_neighbours, 2},
     {"_edgestream_sg_n_nodes", (DL_FUNC) &_edgestream_sg_n_nodes, 1},
+    {"_edgestream_sg_n_ids", (DL_FUNC) &_edgestream_sg_n_ids, 1},
     {"_edgestream_sg_n_edges", (DL_FUNC) &_edgestream_sg_n_edges, 1},
     {"_edgestream_sg_is_directed", (DL_FUNC) &_edgestream_sg_is_directed, 1},
     {"_edgestream_sg_is_weighted", (DL_FUNC) &_edgestream_sg_is_weighted, 1},
@@ -502,6 +614,7 @@ static const R_CallMethodDef CallEntries[] = {
     {"_edgestream_sg_betweenness_approx", (DL_FUNC) &_edgestream_sg_betweenness_approx, 5},
     {"_edgestream_sg_save", (DL_FUNC) &_edgestream_sg_save, 2},
     {"_edgestream_sg_load", (DL_FUNC) &_edgestream_sg_load, 1},
+    {"_edgestream_sg_copy", (DL_FUNC) &_edgestream_sg_copy, 1},
     {NULL, NULL, 0}
 };
 

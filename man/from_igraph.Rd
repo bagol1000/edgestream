@@ -13,8 +13,8 @@ from_igraph(ig)
 A StreamGraph.
 }
 \description{
-igraph vertex i becomes edgestream node i-1; a `weight` edge attribute, if
-present, is carried over into a weighted StreamGraph.
+The `edgestream_id` vertex attribute is used when present; otherwise
+igraph vertex i becomes node i-1. A `weight` edge attribute is preserved.
 }
 \examples{
 if (requireNamespace("igraph", quietly = TRUE)) {

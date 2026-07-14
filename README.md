@@ -25,6 +25,8 @@ to date on **every edge**, so you can query a graph that never stops growing.
 - On-demand centrality: approximate betweenness (sampled, OpenMP-parallel,
   direction- and weight-aware), PageRank, strongly connected components (Tarjan)
 - Batch edge ingestion with OpenMP; binary save / load (`.esg`)
+- Explicit isolated nodes, snapshots, storage reservation and canonical component IDs
+- Automatic timestamp-based sliding windows in Python
 - Interop: NetworkX / scipy.sparse (Python), igraph (R), plain edge lists
 - `NodeIndex` helper to map arbitrary keys (strings, etc.) to node IDs
 - Verified: property-based tests against NetworkX, core fuzzed under
@@ -40,7 +42,8 @@ Node IDs are non-negative integers, **0-indexed in both Python and R**.
 pip install .
 ```
 
-Requires a C++17 compiler with OpenMP (build flags: `-O3 -std=c++17 -fopenmp`).
+Requires a C++17 compiler. OpenMP is enabled for parallel batch/centrality
+paths; set `EDGESTREAM_NO_OPENMP=1` for a portable serial build.
 Build dependencies (`pybind11`, `numpy`) are declared in `pyproject.toml`.
 
 ### R
@@ -51,7 +54,8 @@ install.packages(".", repos = NULL, type = "source")
 # or: R CMD INSTALL .
 ```
 
-Requires `Rcpp` (LinkingTo) and a C++17 toolchain with OpenMP.
+Requires `Rcpp` (LinkingTo) and a C++17 toolchain; R uses OpenMP when the
+toolchain exposes it.
 
 ## Quick start — fraud-detection style
 
@@ -113,6 +117,8 @@ G.add_edge(0, 1)                  # True  (new edge)
 G.add_edge(0, 1)                  # False (duplicate; self-loops also return False)
 W.add_edge(0, 1, 2.5)             # duplicates keep the original weight
 G.remove_edge(0, 1)               # True if it was present
+G.add_node(10)                    # explicit isolated node
+W.update_edge_weight(0, 1, 3.5)   # replace an existing weight
 
 # bulk ingestion from uint32 arrays (intra-batch duplicates and self-loops dropped)
 us = np.array([0, 1, 2], dtype=np.uint32)
@@ -136,15 +142,16 @@ for u, v in [(0, 1), (1, 2), (5, 6)]:
 
 G.n_components()          # 2   (only touched nodes count)
 G.same_component(0, 2)    # True
-G.component_id(2)         # 0   (root id of the component)
+G.component_id(2)         # 0   (smallest ID in the component)
 G.component_size(0)       # 3
 G.component_nodes(0)      # array([0, 1, 2], dtype=uint32)
-G.component_ids()         # root id per touched node
+G.component_ids()         # smallest component id per touched node
 ```
 
 ### Triangles and clustering
 
-Maintained incrementally on every mutation; queries are O(1).
+Counts and the average are maintained incrementally. Queries are O(1) except
+directed local clustering, which builds the union of in/out neighbours.
 
 ```python
 G = es.StreamGraph()
@@ -192,7 +199,9 @@ D.n_strong_components()       # 2
 ```
 
 Weighted graphs automatically use Dijkstra shortest paths for betweenness and
-weight-proportional rank flow for PageRank.
+weight-proportional rank flow for PageRank. Weighted path lengths use a relative
+`1e-9` tolerance, so mathematically tied floating-point routes are split fairly
+even when their additions occur in a different order.
 
 ### Directed graph semantics
 
@@ -223,7 +232,7 @@ edge_list(G)                         # data.frame(u, v, w)
 ### Serialisation
 
 ```python
-G.save("graph.esg")                  # binary EDGS v2 (weights included)
+G.save("graph.esg")                  # portable, atomic EDGS v3
 H = es.StreamGraph.load("graph.esg")
 ```
 
@@ -245,15 +254,14 @@ Streaming scenario (100k edges arriving one at a time, components + triangles
 
 | | edgestream | rustworkx* | igraph | NetworkX |
 |---|---|---|---|---|
-| time | **0.07 s** | 0.49 s | 1.40 s | 16.6 s |
-| ratio | 1x | 7x | 21x | 246x |
+| time | **0.04 s** | 0.30 s | 1.08 s | 8.81 s |
+| ratio | 1x | 7x | 26x | 216x |
 
 \* rustworkx lacks a triangle-count API, so it answers strictly less.
 
 The gap is structural: recompute-on-query is O(checkpoints × (n + m)), while
 edgestream maintains the answers as edges arrive. Methodology, fairness notes
-and micro-benchmarks (`add_edge` ~640 ns amortised worst-case, batch 1M edges
-~0.4 s): [docs/benchmarks.md](docs/benchmarks.md).
+and current micro-benchmarks: [docs/benchmarks.md](docs/benchmarks.md).
 
 ## Documentation
 
@@ -264,11 +272,11 @@ and micro-benchmarks (`add_edge` ~640 ns amortised worst-case, batch 1M edges
 
 ## Status
 
-v0.2: components, triangles, clustering, degrees, weights, edge removal,
-batch ingestion, serialisation, betweenness/PageRank/SCC on demand — all
-tested against NetworkX with property-based tests. Out of scope for now:
-automatic time windows (build them with `remove_edge`), community detection,
-exact incremental betweenness, GPU/distributed backends.
+v0.3: components, triangles, clustering, degrees, weights, explicit nodes,
+edge removal, sliding windows, snapshots, portable serialisation and
+betweenness/PageRank/SCC on demand. Simple graphs are intentional: parallel
+edges and self-loops remain out of scope, as do GPU/distributed backends and
+exact incremental betweenness.
 
 ## Licence
 

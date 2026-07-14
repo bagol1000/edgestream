@@ -36,7 +36,7 @@ static py::array_t<uint32_t> all_local_triangles_np(const StreamGraph& G) {
     return to_uint32_array(G.all_local_triangles());
 }
 
-using U32Array = py::array_t<uint32_t, py::array::c_style | py::array::forcecast>;
+using U32Array = py::array_t<uint32_t, py::array::c_style>;
 using F64Array = py::array_t<double, py::array::c_style | py::array::forcecast>;
 
 static uint64_t add_edges_np(
@@ -68,8 +68,6 @@ static uint64_t add_edges_np(
         pw = static_cast<const double*>(warr.request().ptr);
     }
 
-    //long-running pure C++ section: let other Python threads run
-    py::gil_scoped_release release;
     return G.add_edges(pu, pv, pw, m, n_threads);
 }
 
@@ -81,19 +79,13 @@ static py::array_t<double> betweenness_approx_np(
     bool normalise
 ) {
     std::vector<double> bc;
-    {
-        py::gil_scoped_release release;
-        bc = edgestream::BetweennessApprox::compute(G, k, n_threads, seed, normalise);
-    }
+    bc = edgestream::BetweennessApprox::compute(G, k, n_threads, seed, normalise);
     return to_double_array(bc);
 }
 
 static py::array_t<double> pagerank_np(const StreamGraph& G, double damping, double tol, int max_iter) {
     std::vector<double> pr;
-    {
-        py::gil_scoped_release release;
-        pr = G.pagerank(damping, tol, max_iter);
-    }
+    pr = G.pagerank(damping, tol, max_iter);
     return to_double_array(pr);
 }
 
@@ -135,6 +127,17 @@ PYBIND11_MODULE(_edgestream, m) {
             "Add edge (u, v) with optional weight w (weighted graphs only). "
             "True if new, False if a duplicate or self-loop (duplicates keep the stored weight)."
         )
+        .def("add_node", &StreamGraph::add_node, py::arg("u"),
+             "Add an isolated node explicitly; True when it was new.")
+        .def("add_nodes", &StreamGraph::add_nodes, py::arg("start"), py::arg("count"),
+             "Add count consecutive node ids starting at start.")
+        .def("nodes", [](const StreamGraph& G) { return to_uint32_array(G.nodes()); },
+             "Sorted uint32 array of touched node ids.")
+        .def("reserve_nodes", &StreamGraph::reserve_nodes, py::arg("n"),
+             "Reserve the id range [0, n) without touching nodes.")
+        .def("reserve_edges", &StreamGraph::reserve_edges, py::arg("m"),
+             "Reserve storage for approximately m distinct edges.")
+        .def("clear", &StreamGraph::clear, "Remove all nodes and edges while retaining allocated storage.")
         .def(
             "remove_edge",
             &StreamGraph::remove_edge,
@@ -143,6 +146,9 @@ PYBIND11_MODULE(_edgestream, m) {
             "Remove edge (u, v); True if it was present. Triangles, degrees and weights "
             "update exactly; the next component query rebuilds Union-Find in O(n + m)."
         )
+        .def("update_edge_weight", &StreamGraph::update_edge_weight,
+             py::arg("u"), py::arg("v"), py::arg("w"),
+             "Replace the weight of an existing weighted edge; False when absent.")
         .def(
             "add_edges",
             &add_edges_np,
@@ -154,7 +160,8 @@ PYBIND11_MODULE(_edgestream, m) {
             "optional float64 weight array. Returns the number of new edges added."
         )
         .def("same_component", &StreamGraph::same_component, py::arg("u"), py::arg("v"))
-        .def("component_id", &StreamGraph::find_component, py::arg("u"), "Root id of the component containing u.")
+        .def("component_id", &StreamGraph::find_component, py::arg("u"),
+             "Smallest node id in the component containing u.")
         .def("n_components", &StreamGraph::n_components)
         .def("component_size", &StreamGraph::component_size, py::arg("u"))
         .def(
@@ -166,7 +173,7 @@ PYBIND11_MODULE(_edgestream, m) {
         .def(
             "component_ids",
             [](StreamGraph& G) { return to_uint32_array(G.component_ids()); },
-            "uint32 array of the component root id per touched node."
+            "uint32 array of the canonical minimum component id per touched node."
         )
         .def(
             "strong_component_ids",
@@ -242,14 +249,27 @@ PYBIND11_MODULE(_edgestream, m) {
             "save",
             [](const StreamGraph& G, const std::string& path) { G.save(path.c_str()); },
             py::arg("path"),
-            py::call_guard<py::gil_scoped_release>(),
-            "Save the graph to a binary .esg file (EDGS format v2)."
+            "Save the graph atomically to a portable binary .esg file (EDGS format v3)."
         )
         .def_static(
             "load",
             [](const std::string& path) { return StreamGraph::load(path.c_str()); },
             py::arg("path"),
-            py::call_guard<py::gil_scoped_release>(),
-            "Load a graph from a binary .esg file."
+            "Load an EDGS v2/v3 graph from a binary .esg file."
+        )
+        .def(
+            "copy",
+            [](const StreamGraph& G) {
+                auto out = std::make_unique<StreamGraph>(
+                    G.n_nodes_actual, G.directed, G.weighted);
+                for (uint32_t u : G.nodes()) out->add_node(u);
+                std::vector<uint32_t> us, vs;
+                std::vector<double> ws;
+                G.edge_list(us, vs, G.weighted ? &ws : nullptr);
+                for (size_t i = 0; i < us.size(); ++i)
+                    out->add_edge(us[i], vs[i], G.weighted ? ws[i] : 1.0);
+                return out;
+            },
+            "Return an independent in-memory copy suitable as a read-only snapshot."
         );
 }

@@ -13,6 +13,8 @@ nav:
   - Home: index.md
   - Python guide: python.md
   - R guide: r.md
+  - API reference: reference.md
+  - EDGS format: file-format.md
   - Benchmarks: benchmarks.md
 
 markdown_extensions:

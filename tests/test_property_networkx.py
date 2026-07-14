@@ -58,6 +58,8 @@ def test_triangles_match_underlying_undirected(edges, directed):
     for u in U.nodes():
         assert G.local_triangles(u) == nx.triangles(U, u)
         assert G.clustering_coefficient(u) == pytest.approx(nx.clustering(U, u))
+    expected_avg = sum(nx.clustering(U).values()) / len(U) if len(U) else 0.0
+    assert G.avg_clustering() == pytest.approx(expected_avg)
 
 
 @given(edges=edges_st, directed=st.booleans())
@@ -81,7 +83,9 @@ def test_exact_betweenness_matches(edges, directed):
 
 
 @given(edges=edges_st, directed=st.booleans(),
-       weights=st.lists(st.floats(0.1, 10.0), min_size=1, max_size=10))
+       # Integer-valued weights avoid using NetworkX's exact float equality as
+       # the oracle for mathematically equal paths with different sum orders.
+       weights=st.lists(st.integers(1, 10), min_size=1, max_size=10))
 @SETTINGS
 def test_exact_weighted_betweenness_matches(edges, directed, weights):
     G, N = build(edges, directed, weights=weights)

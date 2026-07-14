@@ -4,6 +4,22 @@ namespace edgestream {
 
 uint32_t count_common_neighbours(const std::vector<uint32_t>& A, const std::vector<uint32_t>& B,
                                  std::vector<uint32_t>& common_out) {
+    // Highly skewed degrees (hub vs leaf): probing the larger sorted vector is
+    // cheaper than scanning it in full. Balanced lists retain the cache-friendly
+    // merge path below.
+    const std::vector<uint32_t>* small = &A;
+    const std::vector<uint32_t>* large = &B;
+    if (small->size() > large->size()) std::swap(small, large);
+    if (!small->empty() && large->size() > small->size() * 8) {
+        uint32_t count = 0;
+        for (uint32_t x : *small) {
+            if (std::binary_search(large->begin(), large->end(), x)) {
+                common_out.push_back(x);
+                ++count;
+            }
+        }
+        return count;
+    }
     //sorted merge, O(|A| + |B|), sequential and cache-friendly
     size_t i = 0, j = 0;
     uint32_t count = 0;

@@ -7,8 +7,16 @@ reference:
   contents:
   - stream_graph
   - add_edge
+  - add_node
+  - add_nodes
+  - nodes
   - add_edges
   - remove_edge
+  - update_edge_weight
+  - reserve_nodes
+  - reserve_edges
+  - clear_graph
+  - copy_graph
   - save_graph
   - load_graph
 - title: Components
@@ -35,6 +43,7 @@ reference:
   - max_degree
   - avg_degree
   - n_nodes
+  - n_ids
   - n_edges
   - density
   - edge_list
@@ -61,6 +70,12 @@ reference:
   - get_key
   - has_key
   - n_indexed
+- title: Sliding windows
+  contents:
+  - sliding_window_graph
+  - window_add_edge
+  - window_advance
+  - window_snapshot
 - title: Package
   contents:
   - edgestream-package

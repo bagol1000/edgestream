@@ -3,6 +3,7 @@ edgestream._edgestream extension module. Package metadata lives in
 pyproject.toml; only the extension build stays here."""
 
 import os
+import shutil
 import subprocess
 import sys
 
@@ -36,6 +37,18 @@ class edgestream_build_ext(build_ext):
     """Inject OpenMP and optimisation flags per platform."""
 
     def build_extensions(self):
+        # Native object caches are unsafe across header/layout changes and
+        # renamed modules. The core is small enough that a full rebuild is the
+        # safer release-engineering default.
+        self.force = True
+        # A renamed extension can otherwise survive in build/lib and leak into
+        # a wheel produced from a dirty developer tree.
+        stale_package = os.path.join(self.build_lib, "streamgraph")
+        if os.path.isdir(stale_package):
+            shutil.rmtree(stale_package)
+        stale_cache = os.path.join(self.build_lib, "edgestream", "__pycache__")
+        if os.path.isdir(stale_cache):
+            shutil.rmtree(stale_cache)
         if hasattr(self.compiler, "compiler") and self.compiler.compiler:
             compiler = self.compiler.compiler[0]
         else:
@@ -44,6 +57,14 @@ class edgestream_build_ext(build_ext):
         for e in self.extensions:
             e.include_dirs.append(get_pybind_include())
             e.include_dirs.append(get_numpy_include())
+
+        if os.environ.get("EDGESTREAM_NO_OPENMP", "").lower() in {"1", "true", "yes"}:
+            for e in self.extensions:
+                e.extra_compile_args += (
+                    ["/O2", "/std:c++17"] if sys.platform == "win32"
+                    else ["-O3", "-std=c++17"]
+                )
+            return build_ext.build_extensions(self)
 
         if sys.platform == "win32":
             for e in self.extensions:
@@ -82,7 +103,13 @@ class edgestream_build_ext(build_ext):
 
 
 ext_modules = [
-    Extension("edgestream._edgestream", sources=ext_sources, include_dirs=["src/"], language="c++", define_macros=[("EDGESTREAM_PYTHON", "1")])
+    Extension(
+        "edgestream._edgestream",
+        sources=ext_sources,
+        include_dirs=["src/"],
+        language="c++",
+        define_macros=[("EDGESTREAM_PYTHON", "1")],
+    )
 ]
 
 setuptools.setup(

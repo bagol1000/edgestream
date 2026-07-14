@@ -13,6 +13,8 @@ standard way to use them on a growing graph.
 Run:  python bench/compare.py
 """
 
+import platform
+import sys
 import time
 
 import numpy as np
@@ -32,26 +34,32 @@ def bench_edgestream():
     import edgestream as es
     G = es.StreamGraph(n_nodes=N_NODES)
     t0 = time.perf_counter()
-    out = 0
+    full = reduced = 0
     for i, (u, v) in enumerate(EDGES, 1):
         G.add_edge(u, v)
         if i % CHECK_EVERY == 0:
-            out ^= G.n_components() ^ int(G.triangle_count()) ^ G.degree(PROBE)
-    return time.perf_counter() - t0, out
+            components = G.n_components()
+            degree = G.degree(PROBE)
+            full ^= components ^ int(G.triangle_count()) ^ degree
+            reduced ^= components ^ degree
+    return time.perf_counter() - t0, full, reduced
 
 
 def bench_networkx():
     import networkx as nx
     G = nx.Graph()
     t0 = time.perf_counter()
-    out = 0
+    full = reduced = 0
     for i, (u, v) in enumerate(EDGES, 1):
         if u != v:
             G.add_edge(u, v)
         if i % CHECK_EVERY == 0:
             tri = sum(nx.triangles(G).values()) // 3
-            out ^= nx.number_connected_components(G) ^ tri ^ (G.degree(PROBE) if PROBE in G else 0)
-    return time.perf_counter() - t0, out
+            components = nx.number_connected_components(G)
+            degree = G.degree(PROBE) if PROBE in G else 0
+            full ^= components ^ tri ^ degree
+            reduced ^= components ^ degree
+    return time.perf_counter() - t0, full, reduced
 
 
 def bench_igraph():
@@ -60,7 +68,7 @@ def bench_igraph():
     seen = set()
     touched = set()
     t0 = time.perf_counter()
-    out = 0
+    full = reduced = 0
     buf = []
     for i, (u, v) in enumerate(EDGES, 1):
         key = (u, v) if u < v else (v, u)
@@ -77,8 +85,10 @@ def bench_igraph():
             # components; subtract them so the answer matches edgestream's
             comps = len(G.connected_components()) - (N_NODES - len(touched))
             tri = len(G.list_triangles())
-            out ^= comps ^ tri ^ G.degree(PROBE)
-    return time.perf_counter() - t0, out
+            degree = G.degree(PROBE)
+            full ^= comps ^ tri ^ degree
+            reduced ^= comps ^ degree
+    return time.perf_counter() - t0, full, reduced
 
 
 def bench_rustworkx():
@@ -90,7 +100,7 @@ def bench_rustworkx():
     seen = set()
     touched = set()
     t0 = time.perf_counter()
-    out = 0
+    reduced = 0
     for i, (u, v) in enumerate(EDGES, 1):
         key = (u, v) if u < v else (v, u)
         if u != v and key not in seen:
@@ -100,12 +110,14 @@ def bench_rustworkx():
             touched.add(v)
         if i % CHECK_EVERY == 0:
             comps = rx.number_connected_components(G) - (N_NODES - len(touched))
-            out ^= comps ^ G.degree(PROBE)
-    return time.perf_counter() - t0, out
+            reduced ^= comps ^ G.degree(PROBE)
+    return time.perf_counter() - t0, None, reduced
 
 
 def main():
+    print(f"Python {sys.version.split()[0]} | {platform.platform()} | NumPy {np.__version__}")
     results = {}
+    checks = {}
     for name, fn in [
         ("edgestream", bench_edgestream),
         ("rustworkx", bench_rustworkx),
@@ -113,12 +125,23 @@ def main():
         ("networkx", bench_networkx),
     ]:
         try:
-            dt, chk = fn()
+            dt, full, reduced = fn()
             results[name] = dt
-            print(f"{name:12s} {dt:10.2f} s   (checksum {chk})")
+            checks[name] = (full, reduced)
+            shown = full if full is not None else reduced
+            print(f"{name:12s} {dt:10.2f} s   (checksum {shown})")
         except Exception as exc:  # a competitor missing shouldn't kill the run
             print(f"{name:12s} skipped: {exc}")
     if "edgestream" in results:
+        expected_full, expected_reduced = checks["edgestream"]
+        for name, (full, reduced) in checks.items():
+            if name == "edgestream":
+                continue
+            if full is not None and full != expected_full:
+                raise RuntimeError(f"{name} returned a different full checksum")
+            if reduced != expected_reduced:
+                raise RuntimeError(f"{name} returned a different component/degree checksum")
+        print("checksums: verified")
         base = results["edgestream"]
         for name, dt in results.items():
             if name != "edgestream":

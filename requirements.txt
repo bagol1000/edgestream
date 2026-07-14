@@ -1,3 +1,9 @@
 numpy>=1.21
 pybind11>=2.10
-pytest
+pytest>=7
+hypothesis
+networkx
+scipy
+build
+twine
+mkdocs-material

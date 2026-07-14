@@ -2,7 +2,7 @@
 requires = [
     "pybind11>=2.10",
     "numpy>=1.21",
-    "setuptools>=61",
+    "setuptools>=77",
     "wheel"
 ]
 build-backend = "setuptools.build_meta"
@@ -11,15 +11,21 @@ build-backend = "setuptools.build_meta"
 name = "edgestream"
 description = "edgestream: streaming (dynamic) graph analytics"
 readme = "README.md"
-license = {text = "MIT"}
+license = "MIT"
+license-files = ["LICENSE"]
 authors = [{name = "bagol1000", email = "01199218@pw.edu.pl"}]
-requires-python = ">=3.9"
+requires-python = ">=3.9,<3.14"
 dependencies = ["numpy>=1.21"]
 dynamic = ["version"]
 classifiers = [
     "Programming Language :: Python",
     "Programming Language :: Python :: 3",
     "Programming Language :: Python :: 3 :: Only",
+    "Programming Language :: Python :: 3.9",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
     "Intended Audience :: Science/Research",
     "Development Status :: 3 - Alpha",
     "Topic :: Scientific/Engineering",
@@ -30,8 +36,9 @@ Homepage = "https://github.com/bagol1000/edgestream"
 Issues = "https://github.com/bagol1000/edgestream/issues"
 
 [project.optional-dependencies]
-dev = ["pytest>=7", "hypothesis", "networkx", "scipy"]
+dev = ["pytest>=7", "hypothesis", "networkx", "scipy", "build", "twine"]
 interop = ["networkx", "scipy"]
+docs = ["mkdocs-material"]
 
 [tool.setuptools]
 packages = ["edgestream"]

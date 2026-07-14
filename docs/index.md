@@ -8,14 +8,15 @@ degrees and weights incrementally as edges arrive, and compute centrality
 Most graph tools (NetworkX, igraph) assume a static graph: load everything,
 run an algorithm, done. edgestream keeps its metrics up to date on **every
 edge**, so you can query a graph that never stops growing — and remove edges
-again when your stream has a sliding window.
+again when your stream has a sliding window. Python also provides
+`SlidingWindowGraph` for automatic timestamp-based expiry.
 
 ## Why edgestream
 
-- **O(1) answers while streaming.** Components (Union-Find), triangles,
-  degrees, clustering and weight totals update on each `add_edge` /
-  `remove_edge`; queries never trigger recomputation (the only exception:
-  the first component query after a removal rebuilds Union-Find once).
+- **Maintained answers while streaming.** Counts, degrees, triangle metrics,
+  strength and average clustering are O(1) reads. Component lookup is
+  amortised O(alpha(n)); result-producing methods scale with their output.
+  The first component query after removals rebuilds Union-Find once.
 - **One core, two ecosystems.** The same C++17 engine drives a pybind11
   module and an Rcpp package with mirrored APIs.
 - **Plays well with others.** Convert to/from NetworkX, scipy.sparse and
@@ -34,7 +35,8 @@ pip install edgestream        # Python (from source until wheels are published)
 R CMD INSTALL .
 ```
 
-Both need a C++17 compiler with OpenMP.
+Both need a C++17 compiler. OpenMP is optional and recommended for parallel
+paths; Python source builds can set `EDGESTREAM_NO_OPENMP=1` to disable it.
 
 ## 60-second tour (Python)
 

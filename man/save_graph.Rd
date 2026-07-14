@@ -19,6 +19,6 @@ Save a graph to a binary file
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L)
-p <- tempfile(fileext = ".sgph")
+p <- tempfile(fileext = ".esg")
 save_graph(G, p)
 }

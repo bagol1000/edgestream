@@ -1,3 +1,29 @@
+# edgestream 0.3.0 (2026-07-14)
+
+## New features
+
+* Explicit isolated nodes: `add_node()`, `add_nodes()` and `nodes()`.
+* Storage controls and snapshots: `reserve_nodes()`, `reserve_edges()`,
+  `clear()` / `clear_graph()`, and `copy()` / `copy_graph()`.
+* `update_edge_weight()` replaces the finite positive weight of an existing edge.
+* Python `SlidingWindowGraph` expires timestamped edges automatically.
+* Component labels are canonical: the smallest node ID in each component.
+
+## Correctness, performance and release engineering
+
+* EDGS v3 is portable little-endian, written atomically, preserves ID range and
+  isolated touched nodes, validates its input, and still reads v2 files.
+* NetworkX and igraph conversions now preserve isolated nodes.
+* Edge weights and PageRank/betweenness parameters are fully validated.
+* Weighted betweenness counts tied floating-point paths with a relative
+  tolerance and independently of Dijkstra heap order.
+* `strength()` and `avg_clustering()` are now maintained for O(1) queries.
+* Common-neighbour intersection adapts to highly skewed hub/leaf degrees.
+* Python endpoint batches require contiguous uint32 arrays instead of silently
+  converting negative or floating-point IDs.
+* Source distributions include all C++ headers and are installed/tested in CI.
+* Release wheels cover CPython 3.9--3.13 and are checked for stale packages.
+
 # edgestream 0.2.0 (2026-07-12)
 
 Package renamed from `streamgraph` to `edgestream` (the old name collides with

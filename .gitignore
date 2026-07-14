@@ -26,11 +26,9 @@ edgestream.Rcheck/
 *~
 Thumbs.db
 notatki.md
+PRZEWODNIK.md
 
 .venv/
 
 .hypothesis/
 site/
-
-# prywatne notatki edukacyjne
-PRZEWODNIK.md

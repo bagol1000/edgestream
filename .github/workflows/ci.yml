@@ -12,7 +12,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest]
-        python-version: ["3.9", "3.11", "3.12"]
+        python-version: ["3.9", "3.10", "3.11", "3.12", "3.13"]
         include:
           # one recent Python per non-Linux OS exercises the clang/MSVC build paths
           - os: macos-latest
@@ -30,11 +30,41 @@ jobs:
       - name: Install dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install pybind11 numpy pytest networkx scipy hypothesis
-      - name: Build and install
-        run: pip install -e .
+          pip install -e ".[dev]"
       - name: Run tests (unit + property-based vs NetworkX)
         run: pytest tests/ -v --tb=short
+
+  package-python:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: python -m pip install build twine
+      - name: Build and validate distributions
+        run: |
+          python -m build
+          python -m twine check dist/*
+          tar -tzf dist/*.tar.gz | grep 'src/edgestream.h'
+          if unzip -l dist/*.whl | grep -q 'streamgraph/'; then exit 1; fi
+          if unzip -l dist/*.whl | grep -q '__pycache__'; then exit 1; fi
+      - name: Install from sdist and test
+        run: |
+          python -m venv /tmp/edgestream-sdist
+          /tmp/edgestream-sdist/bin/pip install dist/*.tar.gz pytest hypothesis networkx scipy
+          cd /tmp
+          /tmp/edgestream-sdist/bin/pytest "$GITHUB_WORKSPACE/tests" -q --rootdir=/tmp --import-mode=importlib
+
+  docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - run: pip install ".[docs]"
+      - run: mkdocs build --strict
 
   test-cpp:
     runs-on: ubuntu-latest
@@ -67,7 +97,7 @@ jobs:
       - name: Install R dependencies
         run: Rscript -e 'install.packages(c("Rcpp", "testthat", "igraph"))'
       - name: Install package
-        run: R CMD INSTALL .
+        run: R CMD INSTALL --preclean .
       - name: Run testthat suite
         run: Rscript -e "library(edgestream); res <- testthat::test_dir('tests/testthat'); if (any(as.data.frame(res)\$failed > 0)) quit(status = 1)"
 

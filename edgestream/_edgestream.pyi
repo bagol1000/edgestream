@@ -93,6 +93,24 @@ class StreamGraph:
         2
         """
 
+    def add_node(self, u: int) -> bool:
+        """Add an explicit isolated node; return whether it was new."""
+
+    def add_nodes(self, start: int, count: int) -> int:
+        """Add count consecutive node IDs beginning at start."""
+
+    def nodes(self) -> np.ndarray:
+        """Return sorted touched node IDs as uint32."""
+
+    def reserve_nodes(self, n: int) -> None:
+        """Reserve an ID range without creating nodes."""
+
+    def reserve_edges(self, m: int) -> None:
+        """Reserve storage for approximately m distinct edges."""
+
+    def clear(self) -> None:
+        """Remove all nodes and edges while retaining allocated storage."""
+
     def same_component(self, u: int, v: int) -> bool:
         """Return whether ``u`` and ``v`` are in the same component (O(alpha(n))).
 
@@ -100,8 +118,11 @@ class StreamGraph:
         *weakly* connected components.
         """
 
+    def update_edge_weight(self, u: int, v: int, w: float) -> bool:
+        """Replace an existing weighted edge's finite positive weight."""
+
     def component_id(self, u: int) -> int:
-        """Return the root ID of ``u``'s component (O(alpha(n)))."""
+        """Return the smallest node ID in the component containing u."""
 
     def n_components(self) -> int:
         """Return the number of connected components among touched nodes."""
@@ -113,7 +134,7 @@ class StreamGraph:
         """Return a uint32 array of all touched nodes in ``u``'s component."""
 
     def component_ids(self) -> np.ndarray:
-        """Return a uint32 array of the component root ID for each touched node."""
+        """Return canonical component IDs for touched nodes in ascending order."""
 
     def degree(self, u: int) -> int:
         """Return the degree of node ``u`` (0 if never referenced).
@@ -285,19 +306,22 @@ class StreamGraph:
         """
 
     def save(self, path: str) -> None:
-        """Write the graph to a binary ``.sgph`` file (Section 10 format)."""
+        """Atomically write a portable EDGS v3 .esg file."""
 
     @staticmethod
     def load(path: str) -> StreamGraph:
-        """Load a graph from a ``.sgph`` file, replaying its edges.
+        """Load an EDGS v2 or v3 .esg graph.
 
         Examples
         --------
         >>> import tempfile, os
         >>> G = StreamGraph()
         >>> _ = [G.add_edge(i, i + 1) for i in range(5)]
-        >>> p = os.path.join(tempfile.mkdtemp(), "g.sgph")
+        >>> p = os.path.join(tempfile.mkdtemp(), "g.esg")
         >>> G.save(p)
         >>> StreamGraph.load(p).n_edges()
         5
         """
+
+    def copy(self) -> StreamGraph:
+        """Return an independent in-memory snapshot."""

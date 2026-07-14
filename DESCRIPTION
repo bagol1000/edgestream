@@ -1,9 +1,9 @@
 Package: edgestream
 Type: Package
 Title: Streaming (Dynamic) Graph Analytics
-Version: 0.2.0
-Date: 2026-07-12
-Authors@R: person("bagol1000", role = c("aut", "cre"),
+Version: 0.3.0
+Date: 2026-07-14
+Authors@R: person(given = "bagol1000", family = "developer", role = c("aut", "cre"),
     email = "01199218@pw.edu.pl")
 Description: Maintains graph metrics incrementally as edges arrive in a stream.
     Provides an in-memory dynamic graph with incremental connected components
@@ -23,6 +23,6 @@ Suggests:
     rmarkdown
 VignetteBuilder: knitr
 Encoding: UTF-8
-SystemRequirements: C++17, OpenMP
+SystemRequirements: C++17; OpenMP is optional but recommended
 Config/testthat/edition: 3
 RoxygenNote: 8.0.0

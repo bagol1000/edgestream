@@ -16,16 +16,21 @@ D <- stream_graph(directed = TRUE)
 W <- stream_graph(weighted = TRUE)
 
 add_edge(G, 0L, 1L)
+add_node(G, 10L)
+nodes(G)
 add_edge(W, 0L, 1L, w = 2.5)
 remove_edge(G, 0L, 1L)
 add_edges(G, c(0L, 1L, 2L), c(1L, 2L, 0L), n_threads = 4L)
 add_edges(W, c(0L, 1L), c(1L, 2L), ws = c(1.5, 3))
+update_edge_weight(W, 0L, 1L, 2.5)
+snapshot <- copy_graph(G)
 ```
 
 ## Queries
 
 ```r
 n_nodes(G); n_edges(G); density(G); avg_degree(G); max_degree(G)
+n_ids(G)
 degree(G, u); in_degree(G, u); neighbours(G, u); in_neighbours(G, u)
 has_edge(G, u, v); edge_weight(W, u, v); strength(W, u); total_weight(W)
 degree_histogram(G)
@@ -61,3 +66,6 @@ p <- tempfile(fileext = ".esg")
 save_graph(G, p)
 H <- load_graph(p)
 ```
+
+EDGS v3 is portable little-endian, written atomically and preserves explicit
+isolated nodes plus the reserved ID range. Version 0.3 still reads v2 files.

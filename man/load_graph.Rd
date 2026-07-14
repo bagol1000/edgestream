@@ -17,6 +17,6 @@ Load a graph from a binary file
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L)
-p <- tempfile(fileext = ".sgph"); save_graph(G, p)
+p <- tempfile(fileext = ".esg"); save_graph(G, p)
 H <- load_graph(p); n_edges(H)
 }

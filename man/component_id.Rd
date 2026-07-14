@@ -2,7 +2,7 @@
 % Please edit documentation in R/edgestream.R
 \name{component_id}
 \alias{component_id}
-\title{Component root ID of a node}
+\title{Canonical component ID of a node}
 \usage{
 component_id(G, u)
 }
@@ -12,10 +12,10 @@ component_id(G, u)
 \item{u}{Node ID (0-indexed).}
 }
 \value{
-Integer root ID.
+The smallest node ID in the component.
 }
 \description{
-Component root ID of a node
+Canonical component ID of a node
 }
 \examples{
 G <- stream_graph(); add_edge(G, 0L, 1L)

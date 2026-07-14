@@ -27,7 +27,73 @@
 #' add_edge(W, 0L, 1L, w = 2.5)
 #' @export
 stream_graph <- function(n_nodes = 0L, directed = FALSE, weighted = FALSE) {
-    .sg_create(as.integer(n_nodes), as.logical(directed), as.logical(weighted))
+    structure(.sg_create(as.integer(n_nodes), as.logical(directed), as.logical(weighted)),
+              class = "edgestream_graph")
+}
+
+#' @export
+print.edgestream_graph <- function(x, ...) {
+    cat(sprintf("<edgestream_graph> %s, %s: %s nodes, %s edges\n",
+                if (.sg_is_directed(x)) "directed" else "undirected",
+                if (.sg_is_weighted(x)) "weighted" else "unweighted",
+                format(n_nodes(x)), format(n_edges(x))))
+    invisible(x)
+}
+
+#' Add explicit isolated nodes
+#' @param G A StreamGraph.
+#' @param u Node ID.
+#' @return Logical; TRUE when the node was new.
+#' @export
+add_node <- function(G, u) .sg_add_node(G, as.integer(u))
+
+#' @rdname add_node
+#' @param start First node ID.
+#' @param count Number of consecutive IDs.
+#' @return add_nodes() returns the number of new nodes.
+#' @export
+add_nodes <- function(G, start, count) {
+    .sg_add_nodes(G, as.integer(start), as.integer(count))
+}
+
+#' List touched node IDs
+#' @param G A StreamGraph.
+#' @return Sorted integer vector.
+#' @export
+nodes <- function(G) .sg_nodes(G)
+
+#' Reserve graph storage
+#' @param G A StreamGraph.
+#' @param n Size of the reserved node-ID range.
+#' @export
+reserve_nodes <- function(G, n) {
+    .sg_reserve_nodes(G, as.integer(n))
+    invisible(G)
+}
+
+#' @rdname reserve_nodes
+#' @param m Approximate number of distinct edges.
+#' @export
+reserve_edges <- function(G, m) {
+    .sg_reserve_edges(G, as.double(m))
+    invisible(G)
+}
+
+#' Clear a graph while retaining allocated storage
+#' @param G A StreamGraph.
+#' @return Invisibly, G.
+#' @export
+clear_graph <- function(G) {
+    .sg_clear(G)
+    invisible(G)
+}
+
+#' Copy a graph
+#' @param G A StreamGraph.
+#' @return An independent StreamGraph snapshot.
+#' @export
+copy_graph <- function(G) {
+    structure(.sg_copy(G), class = "edgestream_graph")
 }
 
 #' Add a single edge
@@ -66,6 +132,16 @@ remove_edge <- function(G, u, v) {
     .sg_remove_edge(G, as.integer(u), as.integer(v))
 }
 
+#' Update an edge weight
+#' @param G A weighted StreamGraph.
+#' @param u,v Node IDs.
+#' @param w New finite positive weight.
+#' @return Logical; FALSE if the edge is absent.
+#' @export
+update_edge_weight <- function(G, u, v, w) {
+    .sg_update_edge_weight(G, as.integer(u), as.integer(v), as.double(w))
+}
+
 #' Add many edges in a batch
 #'
 #' Duplicates within the batch and self-loops are removed in a parallel pre-pass;
@@ -102,11 +178,11 @@ same_component <- function(G, u, v) {
     .sg_same_component(G, as.integer(u), as.integer(v))
 }
 
-#' Component root ID of a node
+#' Canonical component ID of a node
 #'
 #' @param G A StreamGraph.
 #' @param u Node ID (0-indexed).
-#' @return Integer root ID.
+#' @return The smallest node ID in the component.
 #' @examples
 #' G <- stream_graph(); add_edge(G, 0L, 1L)
 #' component_id(G, 1L)
@@ -156,7 +232,7 @@ component_nodes <- function(G, u) {
     .sg_component_nodes(G, as.integer(u))
 }
 
-#' Component root ID for every touched node
+#' Canonical component ID for every touched node
 #'
 #' @param G A StreamGraph.
 #' @return Integer vector, one entry per touched node in ascending ID order.
@@ -267,6 +343,12 @@ has_edge <- function(G, u, v) {
 n_nodes <- function(G) {
     .sg_n_nodes(G)
 }
+
+#' Size of the allocated node-ID range
+#' @param G A StreamGraph.
+#' @return Numeric, equal to max current node ID plus one.
+#' @export
+n_ids <- function(G) .sg_n_ids(G)
 
 #' Number of edges
 #'
@@ -395,7 +477,7 @@ betweenness_approx <- function(G, k = 200L, n_threads = 0L, seed = 42L,
 #' @return Invisibly NULL.
 #' @examples
 #' G <- stream_graph(); add_edge(G, 0L, 1L)
-#' p <- tempfile(fileext = ".sgph")
+#' p <- tempfile(fileext = ".esg")
 #' save_graph(G, p)
 #' @export
 save_graph <- function(G, path) {
@@ -409,11 +491,11 @@ save_graph <- function(G, path) {
 #' @return A StreamGraph external pointer.
 #' @examples
 #' G <- stream_graph(); add_edge(G, 0L, 1L)
-#' p <- tempfile(fileext = ".sgph"); save_graph(G, p)
+#' p <- tempfile(fileext = ".esg"); save_graph(G, p)
 #' H <- load_graph(p); n_edges(H)
 #' @export
 load_graph <- function(path) {
-    .sg_load(path)
+    structure(.sg_load(path), class = "edgestream_graph")
 }
 
 #' Weight of an edge
@@ -555,9 +637,9 @@ edge_list <- function(G) {
 
 #' Convert to an igraph graph
 #'
-#' Requires the igraph package. Node IDs are shifted to 1-indexed igraph
-#' vertices (vertex i+1 is edgestream node i); weights become the igraph
-#' `weight` edge attribute.
+#' Requires the igraph package. Original IDs are stored in the
+#' `edgestream_id` vertex attribute; weights become the `weight` edge
+#' attribute.
 #'
 #' @param G A StreamGraph.
 #' @return An igraph graph object.
@@ -572,10 +654,11 @@ as_igraph <- function(G) {
         stop("as_igraph() requires the igraph package: install.packages(\"igraph\")")
     }
     el <- .sg_edge_list(G)
-    n <- if (length(el$u) == 0) 0L else max(el$u, el$v) + 1L
-    ig <- igraph::make_empty_graph(n = n, directed = .sg_is_directed(G))
+    ids <- .sg_nodes(G)
+    ig <- igraph::make_empty_graph(n = length(ids), directed = .sg_is_directed(G))
+    igraph::V(ig)$edgestream_id <- ids
     if (length(el$u) > 0) {
-        edges <- rbind(el$u + 1L, el$v + 1L)
+        edges <- rbind(match(el$u, ids), match(el$v, ids))
         ig <- igraph::add_edges(ig, as.vector(edges))
         if (.sg_is_weighted(G)) igraph::E(ig)$weight <- el$w
     }
@@ -584,8 +667,8 @@ as_igraph <- function(G) {
 
 #' Convert from an igraph graph
 #'
-#' igraph vertex i becomes edgestream node i-1; a `weight` edge attribute, if
-#' present, is carried over into a weighted StreamGraph.
+#' The `edgestream_id` vertex attribute is used when present; otherwise
+#' igraph vertex i becomes node i-1. A `weight` edge attribute is preserved.
 #'
 #' @param ig An igraph graph object.
 #' @return A StreamGraph.
@@ -601,13 +684,22 @@ from_igraph <- function(ig) {
         stop("from_igraph() requires the igraph package: install.packages(\"igraph\")")
     }
     weighted <- "weight" %in% igraph::edge_attr_names(ig)
-    G <- stream_graph(n_nodes = igraph::vcount(ig),
+    if ("edgestream_id" %in% igraph::vertex_attr_names(ig)) {
+        ids <- as.integer(igraph::V(ig)$edgestream_id)
+        if (anyNA(ids) || any(ids < 0L) || anyDuplicated(ids))
+            stop("igraph edgestream_id must contain unique non-negative integers")
+    } else {
+        ids <- seq_len(igraph::vcount(ig)) - 1L
+    }
+    n_id_range <- if (length(ids)) max(ids) + 1L else 0L
+    G <- stream_graph(n_nodes = n_id_range,
                       directed = igraph::is_directed(ig),
                       weighted = weighted)
+    for (id in ids) add_node(G, id)
     el <- igraph::as_edgelist(ig, names = FALSE)
     if (nrow(el) > 0) {
         ws <- if (weighted) igraph::E(ig)$weight else NULL
-        add_edges(G, as.integer(el[, 1]) - 1L, as.integer(el[, 2]) - 1L, ws = ws)
+        add_edges(G, ids[el[, 1]], ids[el[, 2]], ws = ws)
     }
     G
 }
@@ -711,3 +803,86 @@ n_indexed <- function(idx) {
 has_key <- function(idx, key) {
     !is.null(idx$key_to_id[[as.character(key)]])
 }
+
+#' Create a timestamp-based sliding-window graph
+#' @param window Finite positive window width.
+#' @param n_nodes,directed,weighted Passed to [stream_graph()].
+#' @return A mutable window object; its graph is available as `$graph`.
+#' @export
+sliding_window_graph <- function(window, n_nodes = 0L, directed = FALSE,
+                                 weighted = FALSE) {
+    window <- as.double(window)
+    if (length(window) != 1L || !is.finite(window) || window <= 0)
+        stop("window must be finite and positive")
+    x <- new.env(parent = emptyenv())
+    x$graph <- stream_graph(n_nodes, directed, weighted)
+    x$window <- window
+    x$last_time <- -Inf
+    x$events <- list()
+    x$head <- 1L
+    x$active <- new.env(parent = emptyenv(), hash = TRUE)
+    x$directed <- isTRUE(directed)
+    x$weighted <- isTRUE(weighted)
+    class(x) <- "edgestream_window"
+    x
+}
+
+.window_key <- function(x, u, v) {
+    if (!x$directed && u > v) {
+        z <- u; u <- v; v <- z
+    }
+    paste0(u, ":", v)
+}
+
+#' Advance a sliding window
+#' @param x A window from [sliding_window_graph()].
+#' @param timestamp Finite timestamp, not smaller than the preceding timestamp.
+#' @return Number of expired edges.
+#' @export
+window_advance <- function(x, timestamp) {
+    timestamp <- as.double(timestamp)
+    if (length(timestamp) != 1L || !is.finite(timestamp) || timestamp < x$last_time)
+        stop("timestamps must be finite and non-decreasing")
+    x$last_time <- timestamp
+    cutoff <- timestamp - x$window
+    removed <- 0L
+    while (x$head <= length(x$events)) {
+        event <- x$events[[x$head]]
+        if (event$timestamp >= cutoff) break
+        x$head <- x$head + 1L
+        current <- x$active[[event$key]]
+        if (!is.null(current) && identical(current, event$timestamp)) {
+            rm(list = event$key, envir = x$active)
+            removed <- removed + as.integer(remove_edge(x$graph, event$u, event$v))
+        }
+    }
+    removed
+}
+
+#' Add or refresh an edge in a sliding window
+#' @param x A sliding window.
+#' @param u,v Node IDs.
+#' @param timestamp Event timestamp.
+#' @param w Edge weight.
+#' @return Logical; TRUE if the edge was new.
+#' @export
+window_add_edge <- function(x, u, v, timestamp, w = 1.0) {
+    window_advance(x, timestamp)
+    u <- as.integer(u); v <- as.integer(v)
+    is_new <- add_edge(x$graph, u, v, w)
+    if (!is_new && x$weighted && u != v)
+        update_edge_weight(x$graph, u, v, w)
+    if (u != v) {
+        key <- .window_key(x, u, v)
+        timestamp <- as.double(timestamp)
+        x$active[[key]] <- timestamp
+        x$events[[length(x$events) + 1L]] <- list(
+            timestamp = timestamp, key = key, u = u, v = v)
+    }
+    is_new
+}
+
+#' @rdname sliding_window_graph
+#' @param x A window from [sliding_window_graph()].
+#' @export
+window_snapshot <- function(x) copy_graph(x$graph)

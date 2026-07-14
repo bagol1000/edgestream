@@ -19,6 +19,10 @@ P = es.StreamGraph(n_nodes=1_000_000)      # pre-allocate when the bound is know
 G.add_edge(0, 1)          # True (new), False (duplicate / self-loop)
 W.add_edge(0, 1, 2.5)     # duplicates keep the original weight
 G.remove_edge(0, 1)       # True if it was present
+G.add_node(10)            # explicit isolated node
+G.nodes()                 # sorted touched IDs
+W.update_edge_weight(0, 1, 4.0)
+snapshot = G.copy()       # independent graph
 
 us = np.array([0, 1, 2], dtype=np.uint32)  # batch ingestion (OpenMP dedup)
 vs = np.array([1, 2, 0], dtype=np.uint32)
@@ -30,7 +34,7 @@ W.add_edges(us, vs, ws=np.array([1.0, 2.0, 3.0]))
 query after a removal rebuilds Union-Find in O(n + m). Nodes stay "touched"
 after losing all edges (they become singleton components).
 
-## Queries (all O(1) or O(alpha(n)))
+## Queries
 
 ```python
 G.n_nodes(); G.n_edges(); G.density(); G.avg_degree(); G.max_degree()
@@ -46,6 +50,25 @@ G.triangle_count(); G.local_triangles(u); G.all_local_triangles()
 G.clustering_coefficient(u); G.avg_clustering()
 ```
 
+Scalar maintained metrics are O(1), while methods returning arrays necessarily
+copy their output. Neighbour queries cost O(degree), component listings cost
+O(n_ids), and the first component query after removals rebuilds DSU in O(n+m).
+Directed local clustering builds the union of in/out neighbours. See the
+[complexity table](benchmarks.md#query-complexity).
+
+## Sliding windows
+
+```python
+W = es.SlidingWindowGraph(window=60.0, directed=True, weighted=True)
+W.add_edge(0, 1, timestamp=100.0, w=25.0)
+W.add_edge(1, 2, timestamp=130.0, w=10.0)
+W.advance(161.0)       # expires the edge observed at t=100
+snapshot = W.snapshot()
+```
+
+Timestamps must be finite and non-decreasing. Re-observing an edge refreshes
+its expiry time and replaces its weight in a weighted window.
+
 ## On-demand algorithms
 
 ```python
@@ -56,7 +79,9 @@ G.strong_component_ids(); G.n_strong_components()   # Tarjan (directed)
 ```
 
 Weighted graphs use Dijkstra for betweenness and weight-proportional PageRank
-automatically.
+automatically. Dijkstra compares path lengths with a relative `1e-9` tolerance,
+avoiding order-dependent treatment of mathematically tied floating-point routes.
+All weights must be finite and strictly positive.
 
 ## Directed semantics
 
@@ -73,9 +98,13 @@ H, idx = es.from_networkx(nxg)             # relabels via NodeIndex
 S = es.to_scipy_sparse(G)                  # coo_matrix (symmetric if undirected)
 us, vs, ws = G.edge_list(weights=True)     # plain numpy arrays
 
-G.save("graph.esg")                        # binary EDGS v2 format
+G.save("graph.esg")                        # portable, atomic EDGS v3
 H = es.StreamGraph.load("graph.esg")
 ```
 
 Type stubs (`edgestream/_edgestream.pyi`) document every method for IDEs;
 `help(es.StreamGraph)` works too.
+
+Calls operating on one Python graph are serialized by the GIL. OpenMP still
+parallelizes work inside supported C++ operations. Use `copy()` when one
+thread needs a stable snapshot while another continues ingesting data.

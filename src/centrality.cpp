@@ -4,6 +4,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdint>
+#include <stdexcept>
 #include <utility>
 #include <vector>
 
@@ -83,6 +84,12 @@ uint32_t StreamGraph::n_strong_components() const {
 }
 
 std::vector<double> StreamGraph::pagerank(double damping, double tol, int max_iter) const {
+    if (!std::isfinite(damping) || damping < 0.0 || damping >= 1.0)
+        throw std::invalid_argument("edgestream: damping must be finite and in [0, 1)");
+    if (!std::isfinite(tol) || tol <= 0.0)
+        throw std::invalid_argument("edgestream: tol must be finite and positive");
+    if (max_iter <= 0)
+        throw std::invalid_argument("edgestream: max_iter must be positive");
     const uint32_t N = n_nodes_actual;
     std::vector<double> pr(N, 0.0);
     if (n_touched == 0) return pr;

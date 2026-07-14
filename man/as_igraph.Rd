@@ -13,9 +13,9 @@ as_igraph(G)
 An igraph graph object.
 }
 \description{
-Requires the igraph package. Node IDs are shifted to 1-indexed igraph
-vertices (vertex i+1 is edgestream node i); weights become the igraph
-`weight` edge attribute.
+Requires the igraph package. Original IDs are stored in the
+`edgestream_id` vertex attribute; weights become the `weight` edge
+attribute.
 }
 \examples{
 if (requireNamespace("igraph", quietly = TRUE)) {
