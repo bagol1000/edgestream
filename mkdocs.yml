@@ -1,4 +1,7 @@
 site_name: edgestream
+site_url: https://bagol1000.github.io/edgestream/
+site_description: Streaming (dynamic) graph analytics for Python and R
+repo_url: https://github.com/bagol1000/edgestream
 site_description: Streaming (dynamic) graph analytics for Python and R
 repo_url: https://github.com/bagol1000/edgestream
 theme:
