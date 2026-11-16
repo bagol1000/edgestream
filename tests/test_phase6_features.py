@@ -203,6 +203,22 @@ def test_pagerank_weighted_prefers_heavy_edge():
 
 # ---------- exports / conversions ----------
 
+def test_removal_leaves_no_floating_point_residue():
+    # 0.1 + 0.2 + 0.3 - 0.1 - 0.2 - 0.3 != 0 in floating point; an edgeless
+    # node must still be an exact dangling node for PageRank.
+    G = es.StreamGraph(directed=True, weighted=True)
+    for v, w in ((1, 0.1), (2, 0.2), (3, 0.3)):
+        G.add_edge(0, v, w)
+    G.add_edge(1, 0, 1.0)
+    for v in (1, 2, 3):
+        G.remove_edge(0, v)
+    assert G.strength(0) == 0.0
+    assert math.isclose(G.pagerank().sum(), 1.0, abs_tol=1e-9)
+    G.remove_edge(1, 0)
+    assert G.total_weight() == 0.0
+    assert G.avg_clustering() == 0.0
+
+
 def test_edge_list_roundtrip():
     G = es.StreamGraph(weighted=True)
     G.add_edge(3, 1, 2.0)

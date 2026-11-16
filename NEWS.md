@@ -15,6 +15,9 @@
   isolated touched nodes, validates its input, and still reads v2 files.
 * NetworkX and igraph conversions now preserve isolated nodes.
 * Edge weights and PageRank/betweenness parameters are fully validated.
+* Removing weighted edges no longer leaves floating-point residue in
+  `strength()` / `total_weight()`; PageRank previously lost rank mass through
+  nodes whose weighted edges had all been removed.
 * Weighted betweenness counts tied floating-point paths with a relative
   tolerance and independently of Dijkstra heap order.
 * `strength()` and `avg_clustering()` are now maintained for O(1) queries.

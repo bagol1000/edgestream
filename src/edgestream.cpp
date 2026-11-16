@@ -94,6 +94,9 @@ void StreamGraph::erase_neighbour(uint32_t u, uint32_t v) {
     }
     histogram_move(a.degree, a.degree - 1);
     --a.degree;
+    // Incremental subtraction leaves rounding residue; an edgeless node has
+    // strength exactly 0.
+    if (weighted && a.degree == 0) strength_sum[u] = 0.0;
 }
 
 void StreamGraph::erase_in_neighbour(uint32_t u, uint32_t v) {
@@ -270,6 +273,10 @@ bool StreamGraph::remove_edge(uint32_t u, uint32_t v) {
             clustering_sum += clustering_coefficient(item.first) - item.second;
 
     --n_edges;
+    if (n_edges == 0) {  // drop accumulated floating-point residue
+        total_weight_sum = 0.0;
+        clustering_sum = 0.0;
+    }
     // Union-Find cannot split; rebuild lazily on the next component query
     comps_dirty = true;
     return true;

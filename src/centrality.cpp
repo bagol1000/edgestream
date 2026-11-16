@@ -103,7 +103,13 @@ std::vector<double> StreamGraph::pagerank(double damping, double tol, int max_it
     std::vector<double> out_strength(N, 0.0);
     for (uint32_t u = 0; u < N; ++u) {
         if (!touched[u]) continue;
-        out_strength[u] = weighted ? strength(u) : static_cast<double>(adj[u].degree);
+        if (weighted) {
+            // summed fresh: the maintained strength can carry rounding residue
+            // after removals, which would leak rank from edgeless nodes
+            for (double w : w_adj[u]) out_strength[u] += w;
+        } else {
+            out_strength[u] = static_cast<double>(adj[u].degree);
+        }
     }
 
     std::vector<double> nxt(N, 0.0);

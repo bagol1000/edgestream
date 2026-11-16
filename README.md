@@ -263,6 +263,25 @@ The gap is structural: recompute-on-query is O(checkpoints × (n + m)), while
 edgestream maintains the answers as edges arrive. Methodology, fairness notes
 and current micro-benchmarks: [docs/benchmarks.md](docs/benchmarks.md).
 
+## Related tools
+
+`edgestream` is a small, focused library; depending on the job, one of these
+may fit better:
+
+| tool | strength | how edgestream differs |
+|---|---|---|
+| [NetworKit](https://networkit.github.io/) | large-scale analysis in Python/C++, with dynamic variants of selected algorithms | lighter (NumPy is the only dependency), also available in R, and keeps triangles, clustering and degree statistics current on every edge |
+| [Raphtory](https://www.raphtory.com/) | temporal graphs: full edge history, time-travel queries, persistence | no history is kept, only the current graph (optionally a sliding window), with a much smaller API |
+| igraph, rustworkx, graph-tool, NetworkX | broad algorithm coverage on static graphs | metrics are maintained during mutation instead of recomputed per query; far fewer algorithms |
+| networkDynamic / tsna (R) | analysis of recorded longitudinal networks | built for fast live updates rather than retrospective analysis |
+
+Choose `edgestream` when a single process must answer component, triangle,
+clustering or degree queries continuously while edges arrive and expire. It
+is in-memory and mutations are single-threaded; for graphs that outgrow one
+machine, for full temporal history or for a wide algorithm catalogue, use the
+tools above. Conversions (`to_networkx()`, `to_scipy_sparse()`, `as_igraph()`)
+make it easy to hand a snapshot to them.
+
 ## Documentation
 
 - Python: docstrings (`help(es.StreamGraph)`) and type stubs
